@@ -1,0 +1,15 @@
+//
+//  circuit_breaker.proto
+//  Progetto di Distributed Systems and Big Data
+//  Anno Accademico 2024-25
+//  (C) 2024 Luca Montera, Alessio Giordano
+//
+//  Created by Alessio Giordano on 21/11/24.
+//
+
+syntax = "proto3";
+import "http.proto";
+
+service CircuitBreaker {
+	rpc send(HTTPRequest) returns (HTTPResponse);
+}
