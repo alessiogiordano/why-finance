@@ -1,3 +1,4 @@
+#!/bin/sh
 vi /etc/apk/repositories # Decomment community repo
 apk update
 apk upgrade
