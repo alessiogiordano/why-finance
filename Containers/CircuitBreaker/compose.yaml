@@ -1,0 +1,26 @@
+#
+#  compose.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 23/11/24.
+#
+
+services:
+    redis:
+        image: redis:alpine
+        ports:
+        - 30111:6379 # host:container
+    circuit_breaker:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        environment:
+        - REDIS_PORT=30111
+        - CIRCUIT_BREAKER_PORT=30112
+        ports:
+        - 30112:30112
+        depends_on:
+        - redis
+        restart: always

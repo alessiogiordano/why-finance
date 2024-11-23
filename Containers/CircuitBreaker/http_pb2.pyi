@@ -20,7 +20,7 @@ class HTTPMethod(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 
 class HTTPStatusCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    BREAKER_UNKNOWN: _ClassVar[HTTPStatusCode]
+    HTTP_UNKNOWN: _ClassVar[HTTPStatusCode]
     HTTP_CONTINUE: _ClassVar[HTTPStatusCode]
     HTTP_SWITCHING_PROTOCOLS: _ClassVar[HTTPStatusCode]
     HTTP_PROCESSING: _ClassVar[HTTPStatusCode]
@@ -83,8 +83,6 @@ class HTTPStatusCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HTTP_LOOP_DETECTED: _ClassVar[HTTPStatusCode]
     HTTP_NOT_EXTENDED: _ClassVar[HTTPStatusCode]
     HTTP_NETWORK_AUTHENTICATION_REQUIRED: _ClassVar[HTTPStatusCode]
-    BREAKER_CIRCUIT_OPEN: _ClassVar[HTTPStatusCode]
-    BREAKER_CIRCUIT_HALF_OPEN: _ClassVar[HTTPStatusCode]
 HTTP_GET: HTTPMethod
 HTTP_HEAD: HTTPMethod
 HTTP_POST: HTTPMethod
@@ -94,7 +92,7 @@ HTTP_CONNECT: HTTPMethod
 HTTP_OPTIONS: HTTPMethod
 HTTP_TRACE: HTTPMethod
 HTTP_PATCH: HTTPMethod
-BREAKER_UNKNOWN: HTTPStatusCode
+HTTP_UNKNOWN: HTTPStatusCode
 HTTP_CONTINUE: HTTPStatusCode
 HTTP_SWITCHING_PROTOCOLS: HTTPStatusCode
 HTTP_PROCESSING: HTTPStatusCode
@@ -157,8 +155,6 @@ HTTP_INSUFFICIENT_STORAGE: HTTPStatusCode
 HTTP_LOOP_DETECTED: HTTPStatusCode
 HTTP_NOT_EXTENDED: HTTPStatusCode
 HTTP_NETWORK_AUTHENTICATION_REQUIRED: HTTPStatusCode
-BREAKER_CIRCUIT_OPEN: HTTPStatusCode
-BREAKER_CIRCUIT_HALF_OPEN: HTTPStatusCode
 
 class HTTPRequest(_message.Message):
     __slots__ = ("method", "url", "headers", "body")

@@ -1,1 +1,3 @@
+protobuf
 requests
+redis[hiredis]

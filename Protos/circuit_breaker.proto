@@ -11,5 +11,27 @@ syntax = "proto3";
 import "http.proto";
 
 service CircuitBreaker {
-	rpc send(HTTPRequest) returns (HTTPResponse);
+	rpc send(CircuitBreakerRequest) returns (CircuitBreakerResponse);
+}
+
+enum CircuitBreakerStatus {
+    CircuitBreaker_CLOSED = 0;
+    CircuitBreaker_HALF_OPEN = 1;
+    CircuitBreaker_OPEN = 2;
+}
+
+message CircuitBreakerRequest {
+    string id = 1;
+    repeated HTTPStatusCode expected = 2;
+    uint32 timeout = 3; // HTTP request timeout
+    uint32 threshold = 4; // Consecutive failures triggering the opening of the circuit
+    uint32 recovery = 5; // Seconds to wait in open circuit
+    HTTPRequest http = 6;
+}
+
+message CircuitBreakerResponse {
+    string id = 1;
+    CircuitBreakerStatus status = 2;
+    uint32 wait = 3; // Seconds remaining in open circuit
+    HTTPResponse http = 4;
 }

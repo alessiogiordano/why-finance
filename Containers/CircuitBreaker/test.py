@@ -7,16 +7,25 @@
 #  Created by Alessio Giordano on 22/11/24.
 #
 
+from os import environ
+import uuid
 import grpc
 
 from http_pb2 import HTTPMethod, HTTPStatusCode, HTTPRequest, HTTPResponse
-import circuit_breaker_pb2
-import circuit_breaker_pb2_grpc
+from circuit_breaker_pb2 import CircuitBreakerStatus
+from circuit_breaker_pb2 import CircuitBreakerRequest
+from circuit_breaker_pb2_grpc import CircuitBreakerStub
+
+# From: https://grpc.io/docs/guides/retry/
+retry_configuration = [
+    ('grpc.service_config', '{"retryPolicy": {"maxAttempts": 3, "initialBackoff": "0.1s", "maxBackoff": "1s", "backoffMultiplier": 2, "retryableStatusCodes": ["UNAVAILABLE"]}}')
+]
 
 if __name__ == "__main__":
-	with grpc.insecure_channel('localhost:60600') as channel:
-		circuit_breaker = circuit_breaker_pb2_grpc.CircuitBreakerStub(channel)
-		request = HTTPRequest(url="https://example.com/")
-		print("Sending request to " + request.url)
-		response = circuit_breaker.send(request)
-		print("Response: " + str(response.status))
+	with grpc.insecure_channel('localhost:' + str(int(environ['CIRCUIT_BREAKER_PORT'])), options=retry_configuration) as channel:
+		circuit_breaker = CircuitBreakerStub(channel)
+		http_request = HTTPRequest(url="https://example.com/")
+		print("Sending request to " + http_request.url)
+		request = CircuitBreakerRequest(id=uuid.uuid4().hex, expected=[200], timeout=30, threshold=3, recovery=30, http=http_request)
+		response = circuit_breaker.send(request, timeout=60) # twice the HTTP request timeout
+		print("Response: " + CircuitBreakerStatus.Name(response.status) + " " + str(response.http.status))
