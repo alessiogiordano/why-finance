@@ -1,1 +1,0 @@
-# yFinance data SQL server

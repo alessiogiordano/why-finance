@@ -30,9 +30,9 @@ def watch_get_ticker(ticker):
         except:
             abort(400) # Bad Request
 
-# PUT /user/email
+# PUT /users/email
 # -- ticker
-@app.route('/user/<email>', methods=['PUT'])
+@app.route('/users/<email>', methods=['PUT'])
 def user_put_user_data(email):
     content_length = request.content_length
     if content_length is None:
@@ -47,8 +47,8 @@ def user_put_user_data(email):
     print("PUT " + email + " for " + ticker)
     return make_response('', 204) # No Content
 
-# DELETE /user/email
-@app.route('/user/<email>', methods=['DELETE'])
+# DELETE /users/email
+@app.route('/users/<email>', methods=['DELETE'])
 def user_delete_user_data(email):
     # TODO: Check email (?)
     # TODO: Delete from DB
