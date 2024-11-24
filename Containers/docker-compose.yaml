@@ -1,0 +1,80 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-dsbd_homework1}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 60s
+      retries: 20
+      start_period: 60s
+
+  crawler:
+    build:
+      context: ./Crawler
+      dockerfile: Dockerfile
+    environment:
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - DB_NAME=${DB_NAME:-dsbd_homework1}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: on-failure
+
+  user_server:
+    build:
+      context: ./Users
+      dockerfile: Dockerfile
+    ports:
+      - "${AUTH_SERVER_PORT:-50051}:50051"
+    environment:
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - DB_NAME=${DB_NAME:-dsbd_homework1}
+      - AUTH_SERVER_PORT=${AUTH_SERVER_PORT:-50051}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  watch_server:
+    build:
+      context: ./Watch
+      dockerfile: Dockerfile
+    ports:
+      - "${WATCH_SERVER_PORT:-50052}:50052"
+    environment:
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - DB_NAME=${DB_NAME:-dsbd_homework1}
+      - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package watch;
+
+service WatchService {
+    rpc GetLastStockValue (StockRequest) returns (StockResponse);
+    rpc CalculateAverageStockValue (AverageStockRequest) returns (StockResponse);
+}
+
+message StockRequest {
+    string email = 1;
+}
+
+message AverageStockRequest {
+    string email = 1;
+    int32 count = 2; 
+}
+
+message StockResponse {
+    double value = 1;
+}

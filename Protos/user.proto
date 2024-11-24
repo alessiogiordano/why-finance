@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package user;
+
+service UserService {
+    rpc RegisterUser (RegisterUserRequest) returns (UserResponse);
+    rpc UpdateUser (UpdateUserRequest) returns (UserResponse);
+    rpc DeleteUser (DeleteUserRequest) returns (UserResponse);
+}
+
+message RegisterUserRequest {
+    string email = 1;
+    string ticker = 2;
+}
+
+message UpdateUserRequest {
+    string email = 1;
+    string new_ticker = 2;
+}
+
+message DeleteUserRequest {
+    string email = 1;
+}
+
+message UserResponse {
+    string message = 1;
+}

@@ -1,0 +1,4 @@
+2024-11-22 11:05:09,982 - INFO - Il server gRPC è avviato con successo.
+2024-11-22 11:05:09,983 - WARNING - Questo è un avviso.
+2024-11-22 11:05:09,983 - ERROR - Questo è un messaggio di errore.
+2024-11-22 11:05:09,983 - CRITICAL - Questo è un messaggio critico.
