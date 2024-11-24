@@ -66,7 +66,7 @@ def send_http_request(request, timeout=30):
 class CircuitBreaker(CircuitBreakerServicer):
     def send(self, request, context):
         # Check state of the circuit
-        host = urlparse(request.request.url).netloc
+        host = urlparse(request.http.url).netloc
         host_state = redis_server.get(state_prefix + host)
         #
         status = CircuitBreakerStatus.CircuitBreaker_CLOSED
@@ -143,7 +143,8 @@ if __name__ == '__main__':
     circuit_breaker_port = str(int(environ['CIRCUIT_BREAKER_PORT']))
     #
     global redis_server
-    redis_server = redis.Redis(host='localhost', port=redis_port, decode_responses=True)
+    redis_server = redis.Redis(host='redis', port=redis_port, decode_responses=True)
+    print(redis_server.ping())
     #
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=4))
     add_CircuitBreakerServicer_to_server(CircuitBreaker(), server)

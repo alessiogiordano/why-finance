@@ -17,7 +17,7 @@ services:
             context: .
             dockerfile: Dockerfile
         environment:
-        - REDIS_PORT=30111
+        - REDIS_PORT=6379
         - CIRCUIT_BREAKER_PORT=30112
         ports:
         - 30112:30112

@@ -7,7 +7,7 @@
 #  Created by Alessio Giordano on 22/11/24.
 #
 
-from os import environ
+import sys
 import uuid
 import grpc
 
@@ -22,10 +22,13 @@ retry_configuration = [
 ]
 
 if __name__ == "__main__":
-	with grpc.insecure_channel('localhost:' + str(int(environ['CIRCUIT_BREAKER_PORT'])), options=retry_configuration) as channel:
-		circuit_breaker = CircuitBreakerStub(channel)
-		http_request = HTTPRequest(url="https://example.com/")
-		print("Sending request to " + http_request.url)
-		request = CircuitBreakerRequest(id=uuid.uuid4().hex, expected=[200], timeout=30, threshold=3, recovery=30, http=http_request)
-		response = circuit_breaker.send(request, timeout=60) # twice the HTTP request timeout
-		print("Response: " + CircuitBreakerStatus.Name(response.status) + " " + str(response.http.status))
+    if len(sys.argv) != 2:
+        print("USAGE: test.py 10.0.0.16:30112")
+        exit()
+    with grpc.insecure_channel(sys.argv[1], options=retry_configuration) as channel:
+        circuit_breaker = CircuitBreakerStub(channel)
+        http_request = HTTPRequest(url="https://example.com/")
+        print("Sending request to " + http_request.url)
+        request = CircuitBreakerRequest(id=uuid.uuid4().hex, expected=[200], timeout=30, threshold=3, recovery=30, http=http_request)
+        response = circuit_breaker.send(request, timeout=60) # twice the HTTP request timeout
+        print("Response: " + CircuitBreakerStatus.Name(response.status) + " " + str(response.http.status))
