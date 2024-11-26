@@ -59,6 +59,7 @@ services:
         - mysql_create_tables
         - user_server
         - watch_server
+        - crawler
         restart: always
 #---####################################
     circuit_breaker_redis:

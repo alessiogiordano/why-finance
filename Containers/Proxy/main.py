@@ -33,7 +33,7 @@ def watch_get_ticker(ticker):
                 req = StockRequest(ticker=ticker)
                 response = watch_service.GetLastStockValue(req)
                 print("WATCH " + ticker + "=" + str(response.value))
-                return make_response(str(response.value), 204) # No Content
+                return make_response(str(response.value), 200) # OK
             except Exception as e:
                 return make_response(str(e), 500) # Internal Server Error
         else:
@@ -41,7 +41,7 @@ def watch_get_ticker(ticker):
                 req = AverageStockRequest(ticker=ticker, count=int(average_count))
                 response = watch_service.CalculateAverageStockValue(req)
                 print("WATCH " + ticker + " average(" + average_count + ")=" + str(response.value))
-                return make_response(str(response.value), 204) # No Content
+                return make_response(str(response.value), 200) # OK
             except ValueError as e:
                 return make_response("Provide the number of samples to average over as the query string", 400) # Bad Request
             except Exception as e:

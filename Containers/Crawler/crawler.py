@@ -18,6 +18,28 @@ import mysql.connector
 from datetime import datetime
 import time
 
+
+import logging
+from logging.handlers import RotatingFileHandler
+
+log_file = "./logs/app.log"
+
+file_handler = RotatingFileHandler(
+    log_file, maxBytes=5*1024*1024, backupCount=5 
+)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+
 #
 # Database
 #
@@ -59,7 +81,7 @@ circuit_breaker_host = "circuit_breaker:" + str(int(environ['CIRCUIT_BREAKER_POR
 yfinance_circuit_breaker = CircuitBreakerStatusRequest(host="finance.yahoo.com", threshold=3, recovery=30)
 def assert_closed_or_half_open(circuit_breaker):
     response = circuit_breaker.status(yfinance_circuit_breaker)
-    assert response.status is not CircuitBreakerStatus.CircuitBreaker_CLOSED
+    assert response.status is not CircuitBreakerStatus.CircuitBreaker_OPEN
 #-----------------------------------------------------------------------------------------
 def report_successful_connection(circuit_breaker):
     circuit_breaker.success(yfinance_circuit_breaker)
@@ -74,8 +96,8 @@ def fetch_stock_price(ticker, max_retries=1, cooldown=60):
         circuit_breaker = CircuitBreakerStub(channel)
         try:
             assert_closed_or_half_open(circuit_breaker) # Circuit Breaker
-        except:
-            print(f"Circuit Breaker is Open")
+        except Exception as e:
+            logger.info(f"Circuit Breaker is Open: " + str(e))
             return None
         #
         retries = 0
@@ -86,40 +108,41 @@ def fetch_stock_price(ticker, max_retries=1, cooldown=60):
                 
                 history = stock.history(period="1d")
                 if history.empty:
-                    print(f"Il simbolo {ticker} non ha dati disponibili. Potrebbe essere delisted o non valido.")
+                    logger.info(f"Il simbolo {ticker} non ha dati disponibili. Potrebbe essere delisted o non valido.")
                     return None
     
                 current_price = history['Close'].iloc[-1]
-                print(f"Recuperato stock: {ticker} ---- Prezzo corrente: {current_price}")
+                logger.info(f"Recuperato stock: {ticker} ---- Prezzo corrente: {current_price}")
                 return current_price
             except Exception as e:
                 report_failed_connection(circuit_breaker)
-                print(f"Errore nel recupero dei dati per {ticker}: {e}")
+                logger.info(f"Errore nel recupero dei dati per {ticker}: {e}")
                 retries += 1
                 time.sleep(cooldown)
-        print(f"Errore persistente: superato il numero massimo di tentativi per {ticker}")
+        logger.info(f"Errore persistente: superato il numero massimo di tentativi per {ticker}")
         return None
 
 
 def collect_data():
     tickers = fetch_tickers()
-    for ticker in tickers:
+    for element in tickers:
+        ticker = element[0]
         price = fetch_stock_price(ticker)
         if price is not None:
             timestamp = datetime.now()
             save_stock_data(ticker, price, timestamp)
-            print(f"Dati salvati per {ticker}: {price} a {timestamp}")
+            logger.info(f"Dati salvati per {ticker}: {price} a {timestamp}")
 
 def wait_for_mysql():
     while True:
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
             conn.close()
-            print("Connesso con successo al database!")
+            logger.info("Connesso con successo al database!")
             break
         except mysql.connector.Error as e:
-            print("In attesa del database MySQL... Riprovo in 5 secondi.")
-            print("La configuraizone è: {DB_CONFIG}")
+            logger.info("In attesa del database MySQL... Riprovo in 5 secondi.")
+            logger.info("La configuraizone è: {DB_CONFIG}")
             time.sleep(5)
 
 if __name__ == "__main__":
@@ -127,6 +150,6 @@ if __name__ == "__main__":
     wait_for_mysql()
     while True:
         collect_data()
-        print("Ciclo di inserimento n. {}".format(count))
+        logger.info("Ciclo di inserimento n. {}".format(count))
         time.sleep(int(environ.get('CRAWLER_TIME_INTERVAL', '3600'))) # Defaults to 1 hour
         count += 1
