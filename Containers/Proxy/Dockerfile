@@ -12,6 +12,8 @@ FROM alpine:latest
 WORKDIR /why-finance/proxy
 
 COPY . .
+RUN mkdir ./logs
+RUN touch ./logs/app.log
 
 RUN apk update
 RUN apk upgrade

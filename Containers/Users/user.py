@@ -17,25 +17,24 @@ from datetime import datetime
 import user_pb2
 import user_pb2_grpc
 
+#
+# Logging
+#
 import logging
-from logging.handlers import RotatingFileHandler
-
-log_file = "./logs/app.log"
-
-file_handler = RotatingFileHandler(
-    log_file, maxBytes=5*1024*1024, backupCount=5 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("server.log")
+    ]
 )
-
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(file_handler)
+#-----------------------------------------------------------------------------------------
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+#
+# gRPC Server
+#
 
 DB_CONFIG = {
     "host": os.environ.get('DB_HOST', 'mysql'),
@@ -221,7 +220,7 @@ def serve():
         global redis_server
         redis_port = int(os.environ['REDIS_PORT'])
         redis_server = redis.Redis(host='user_redis', port=redis_port, decode_responses=True)
-        print(redis_server.ping())
+        logger.info(redis_server.ping())
         #   
         user_server_port = str(int(os.environ['USER_SERVER_PORT']))
         #

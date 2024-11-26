@@ -9,12 +9,14 @@
 
 FROM python:3.12
 
-WORKDIR ./
+WORKDIR /why-finance/users
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
+RUN mkdir ./logs
+RUN touch ./logs/app.log
 
 EXPOSE 50051
 

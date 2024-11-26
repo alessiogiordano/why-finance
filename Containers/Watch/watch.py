@@ -13,11 +13,14 @@ from concurrent import futures
 import mysql.connector
 import os
 from datetime import datetime
-import logging
 
 import watch_pb2
 import watch_pb2_grpc
 
+#
+# Logging
+#
+import logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -27,6 +30,11 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+#-----------------------------------------------------------------------------------------
+
+#
+# gRPC Server
+#
 
 DB_CONFIG = {
     "host": os.environ.get('DB_HOST', 'mysql'),
@@ -190,7 +198,7 @@ def serve():
     global redis_server
     redis_port = int(os.environ['REDIS_PORT'])
     redis_server = redis.Redis(host='user_redis', port=redis_port, decode_responses=True)
-    print(redis_server.ping())
+    logger.info(redis_server.ping())
     #
     watch_server_port = str(int(os.environ['WATCH_SERVER_PORT']))
     #

@@ -9,13 +9,17 @@
 
 FROM python:3.12
 
-WORKDIR /app
+WORKDIR /why-finance/crawler
+
+COPY . .
+RUN mkdir ./logs
+RUN touch ./logs/app.log
+
 
 RUN apt-get update && \
     apt-get install -y default-mysql-client && \
     rm -rf /var/lib/apt/lists/*
 
-COPY . .
 RUN pip install -r requirements.txt
 
 ENTRYPOINT ["python", "./crawler.py"]

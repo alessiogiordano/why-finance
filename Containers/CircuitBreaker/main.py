@@ -23,13 +23,29 @@ from circuit_breaker_pb2_grpc import add_CircuitBreakerServicer_to_server
 import concurrent.futures
 import requests
 
-# Avoid key collisions in Redis database
-cache_prefix = "cb_cache_"
-state_prefix = "cb_state_"
+#
+# Logging
+#
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("server.log")
+    ]
+)
+logger = logging.getLogger(__name__)
+#-----------------------------------------------------------------------------------------
 
 #
 # Circuit Breaker
 #
+
+# Avoid key collisions in Redis database
+cache_prefix = "cb_cache_"
+state_prefix = "cb_state_"
+
 def get_circuit_state_for_hostname(host, threshold):
     host_state = redis_server.get(state_prefix + host)
     #
@@ -68,7 +84,7 @@ def change_circuit_state_for_hostname(host, status, failures, threshold, recover
         return CircuitBreakerStatus.CircuitBreaker_OPEN
     else:
         failures += 1
-        print("Failure of " + host + " [count=" + str(failures) + "]")
+        logger.info("Failure of " + host + " [count=" + str(failures) + "]")
         if failures > threshold:
             # Open the circuit
             redis_server.set(state_prefix + host, int(time()) + recovery)
@@ -106,9 +122,9 @@ def send_http_request(request, timeout=30):
     elif request.method is HTTPMethod.HTTP_PATCH:
         method = 'PATCH'
     #
-    print(method + " " + request.url)
+    logger.info(method + " " + request.url)
     response = requests.request(method, request.url, headers=request.headers, data=request.body, timeout=timeout)
-    print("Response: " + str(response.status_code))
+    logger.info("Response: " + str(response.status_code))
     #
     status = HTTPStatusCode.HTTP_UNKNOWN
     try:
@@ -153,11 +169,11 @@ class CircuitBreaker(CircuitBreakerServicer):
             circuit_breaker_response = CircuitBreakerHTTPResponse()
             serialized_response = redis_server.get(cache_prefix + request.id)
             circuit_breaker_response.ParseFromString(serialized_response)
-            print("Cached Request " + request.id)
+            logger.info("Cached Request " + request.id)
             return circuit_breaker_response
         except:
             # Send HTTP request
-            print("Request " + request.id)
+            logger.info("Request " + request.id)
             http_response = send_http_request(request.http, request.timeout)
             # Request is successful as far as the circuit breaker is concerned if no HTTP status code is provided in the 'expected' list of the request object (and no state is ever set in Redis)
             if len(request.expected) > 0:
@@ -182,11 +198,11 @@ if __name__ == '__main__':
     #
     global redis_server
     redis_server = redis.Redis(host='circuit_breaker_redis', port=redis_port, decode_responses=True)
-    print(redis_server.ping())
+    logger.info(redis_server.ping())
     #
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=4))
     add_CircuitBreakerServicer_to_server(CircuitBreaker(), server)
     server.add_insecure_port('[::]:' + circuit_breaker_port)
     server.start()
-    print("Circuit Breaker microservice is ready")
+    logger.info("Circuit Breaker microservice is ready")
     server.wait_for_termination()
