@@ -1,4 +1,4 @@
 grpcio
 grpcio-tools
 mysql-connector-python
-protobuf
+redis[hiredis]

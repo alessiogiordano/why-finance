@@ -8,7 +8,7 @@
 #
 
 services:
-    redis:
+    circuit_breaker_redis:
         image: redis:alpine
         ports:
         - 30111:6379 # host:container
@@ -22,5 +22,5 @@ services:
         ports:
         - 30112:30112
         depends_on:
-        - redis
+        - circuit_breaker_redis
         restart: always

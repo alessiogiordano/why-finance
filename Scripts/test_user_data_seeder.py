@@ -1,3 +1,12 @@
+#
+#  test_user_data_seeder.py
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
 import mysql.connector
 from dotenv import load_dotenv
 

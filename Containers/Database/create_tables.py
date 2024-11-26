@@ -1,16 +1,22 @@
-import os
-from dotenv import load_dotenv
+#
+#  create_tables.py
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
+from os import environ # Environment Variables
 import mysql.connector
 import time
 
-load_dotenv()
-
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME"),
-    "port": int(os.getenv("DB_PORT"))
+    "host": environ.get('DB_HOST', 'mysql'),
+    "user": environ.get('DB_USER', 'root'),
+    "password": environ.get('DB_PASSWORD', 'root'),
+    "database": environ.get('DB_NAME', 'dsbd_homework1'),
+    "port": int(environ.get('DB_PORT', '3306'))
 }
 
 def wait_for_mysql(max_retries=30, delay=2):
@@ -44,22 +50,12 @@ def create_tables():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS stock_data (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                email VARCHAR(255),
                 ticker VARCHAR(10),
                 value DECIMAL(10, 2),
-                timestamp DATETIME,
-                FOREIGN KEY (email) REFERENCES users(email) ON DELETE CASCADE
+                timestamp DATETIME
             );
         """)
-        print("Tabella 'stock_data' creata o già esistente.")
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS stocks_list (
-                ticker VARCHAR(10) PRIMARY KEY,
-                name VARCHAR(255) NOT NULL
-            );
-        """)
-        print("Tabella 'stocks_list' creata o già esistente.")
+        print("Tabella 'stocks' creata o già esistente.")
 
         conn.commit()
         print("Database inizializzato con successo!")

@@ -1,3 +1,4 @@
 yfinance
 mysql-connector-python
-python-dotenv
+grpcio
+protobuf

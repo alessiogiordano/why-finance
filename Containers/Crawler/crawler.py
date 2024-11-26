@@ -1,101 +1,114 @@
+#
+#  crawler.py
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
+from os import environ # Environment Variables
+import grpc
+from circuit_breaker_pb2 import CircuitBreakerStatus
+from circuit_breaker_pb2 import CircuitBreakerStatusRequest, CircuitBreakerStatusResponse
+from circuit_breaker_pb2_grpc import CircuitBreakerStub
+
 import yfinance as yf
 import mysql.connector
 from datetime import datetime
 import time
 
+#
+# Database
+#
 DB_CONFIG = {
-    "host": "mysql",
-    "user": "root",
-    "password": "root",
-    "database": "dsbd_homework1",
-    "port": 3306
+    "host": environ.get('DB_HOST', 'mysql'),
+    "user": environ.get('DB_USER', 'root'),
+    "password": environ.get('DB_PASSWORD', 'root'),
+    "database": environ.get('DB_NAME', 'dsbd_homework1'),
+    "port": int(environ.get('DB_PORT', '3306'))
 }
-
 def connect_to_db():
     conn = mysql.connector.connect(**DB_CONFIG)
     return conn
-
-def fetch_users():
+#-----------------------------------------------------------------------------------------
+def fetch_tickers():
     conn = connect_to_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT email, ticker FROM users")
-    users = cursor.fetchall()
+    cursor.execute("SELECT DISTINCT ticker from users")
+    tickers = cursor.fetchall()
     conn.close()
-    return users
-
-def save_stock_data(email, ticker, value, timestamp):
+    return tickers
+#-----------------------------------------------------------------------------------------
+def save_stock_data(ticker, value, timestamp):
     conn = connect_to_db()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO stock_data (email, ticker, value, timestamp) VALUES (%s, %s, %s, %s)",
-        (email, ticker, value, timestamp)
+        "INSERT INTO stock_data (ticker, value, timestamp) VALUES (%s, %s, %s)",
+        (ticker, value, timestamp)
     )
     conn.commit()
     conn.close()
-    
-    
-#TODO: ricordiamoc di implementare qui il circuit breaker come servizio esterno
-def fetch_stock_price(ticker, max_retries=1, cooldown=60):
-    retries = 0
-    while retries < max_retries:
-        try:
-            stock = yf.Ticker(ticker)
-            
-            history = stock.history(period="1d")
-            if history.empty:
-                print(f"Il simbolo {ticker} non ha dati disponibili. Potrebbe essere delisted o non valido.")
-                return None
+#-----------------------------------------------------------------------------------------
 
-            current_price = history['Close'].iloc[-1]
-            print(f"Recuperato stock: {ticker} ---- Prezzo corrente: {current_price}")
-            return current_price
-        except Exception as e:
-            print(f"Errore nel recupero dei dati per {ticker}: {e}")
-            retries += 1
-            time.sleep(cooldown)
-    print(f"Errore persistente: superato il numero massimo di tentativi per {ticker}")
-    return None
+
+#
+# Circuit Breaker
+#
+circuit_breaker_host = "circuit_breaker:" + str(int(environ['CIRCUIT_BREAKER_PORT']))
+yfinance_circuit_breaker = CircuitBreakerStatusRequest(host="finance.yahoo.com", threshold=3, recovery=30)
+def assert_closed_or_half_open(circuit_breaker):
+    response = circuit_breaker.status(yfinance_circuit_breaker)
+    assert response.status is not CircuitBreakerStatus.CircuitBreaker_CLOSED
+#-----------------------------------------------------------------------------------------
+def report_successful_connection(circuit_breaker):
+    circuit_breaker.success(yfinance_circuit_breaker)
+#-----------------------------------------------------------------------------------------
+def report_failed_connection(circuit_breaker):
+    circuit_breaker.failure(yfinance_circuit_breaker)
+#-----------------------------------------------------------------------------------------
+
+
+def fetch_stock_price(ticker, max_retries=1, cooldown=60):
+    with grpc.insecure_channel(circuit_breaker_host) as channel:
+        circuit_breaker = CircuitBreakerStub(channel)
+        try:
+            assert_closed_or_half_open(circuit_breaker) # Circuit Breaker
+        except:
+            print(f"Circuit Breaker is Open")
+            return None
+        #
+        retries = 0
+        while retries < max_retries:
+            try:
+                stock = yf.Ticker(ticker)
+                report_successful_connection(circuit_breaker) # Circuit Breaker
+                
+                history = stock.history(period="1d")
+                if history.empty:
+                    print(f"Il simbolo {ticker} non ha dati disponibili. Potrebbe essere delisted o non valido.")
+                    return None
+    
+                current_price = history['Close'].iloc[-1]
+                print(f"Recuperato stock: {ticker} ---- Prezzo corrente: {current_price}")
+                return current_price
+            except Exception as e:
+                report_failed_connection(circuit_breaker)
+                print(f"Errore nel recupero dei dati per {ticker}: {e}")
+                retries += 1
+                time.sleep(cooldown)
+        print(f"Errore persistente: superato il numero massimo di tentativi per {ticker}")
+        return None
 
 
 def collect_data():
-    users = fetch_users()
-    for email, ticker in users:
+    tickers = fetch_tickers()
+    for ticker in tickers:
         price = fetch_stock_price(ticker)
         if price is not None:
             timestamp = datetime.now()
-            save_stock_data(email, ticker, price, timestamp)
-            print(f"Dati salvati per {email} - {ticker}: {price} a {timestamp}")
-
-def fetch_and_save_stocks():
-    try:
-        print("Inizio recupero delle azioni...")
-    
-        tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
-
-        conn = connect_to_db()
-        cursor = conn.cursor()
-
-        for ticker in tickers:
-            try:
-                stock = yf.Ticker(ticker)
-                name = stock.info.get("shortName", "Unknown")
-                cursor.execute(
-                    """
-                    INSERT IGNORE INTO stocks_list (ticker, name)
-                    VALUES (%s, %s)
-                    """,
-                    (ticker, name)
-                )
-                print(f"Azione salvata: {ticker} - {name}")
-            except Exception as e:
-                print(f"Errore durante il recupero delle informazioni per {ticker}: {e}")
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-    except Exception as e:
-        print(f"Errore durante il recupero e il salvataggio delle azioni: {e}")
+            save_stock_data(ticker, price, timestamp)
+            print(f"Dati salvati per {ticker}: {price} a {timestamp}")
 
 def wait_for_mysql():
     while True:
@@ -108,17 +121,12 @@ def wait_for_mysql():
             print("In attesa del database MySQL... Riprovo in 5 secondi.")
             print("La configuraizone è: {DB_CONFIG}")
             time.sleep(5)
-            
-
 
 if __name__ == "__main__":
     count = 0
     wait_for_mysql()
-    fetch_and_save_stocks()
     while True:
         collect_data()
         print("Ciclo di inserimento n. {}".format(count))
-        time.sleep(3) #TODO: cambiare in ogni ora ??? Adesso sono 3 secondi per debuggare meglio 
-        
+        time.sleep(int(environ.get('CRAWLER_TIME_INTERVAL', '3600'))) # Defaults to 1 hour
         count += 1
-        

@@ -1,5 +1,14 @@
 #!/bin/bash
 
+#
+#  test-proxy.sh
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 22/11/24.
+#
+
 # GET /watch/ticker
 curl --location 'http://10.0.0.7:80/watch/MSFT'
 # GET /watch/ticker?avg=<num>

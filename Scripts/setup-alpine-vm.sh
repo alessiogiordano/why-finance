@@ -1,4 +1,14 @@
 #!/bin/sh
+
+#
+#  setup-alpine-vm.sh
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 21/11/24.
+#
+
 vi /etc/apk/repositories # Decomment community repo
 apk update
 apk upgrade

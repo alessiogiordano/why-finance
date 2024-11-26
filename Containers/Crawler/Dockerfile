@@ -1,3 +1,12 @@
+#
+#  Dockerfile
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
 FROM python:3.12
 
 WORKDIR /app
@@ -6,13 +15,7 @@ RUN apt-get update && \
     apt-get install -y default-mysql-client && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY . .
 RUN pip install -r requirements.txt
 
-COPY . .
-
-RUN chmod +x wait_for_mysql.sh
-
-#CMD ["./wait_for_mysql.sh"] 
-#ENTRYPOINT ["python", "./migrations/create_table_stock_data_and_users.py", "./migrations/test_user_data_seeder.py", "crawler.py"]
 ENTRYPOINT ["python", "./crawler.py"]

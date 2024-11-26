@@ -1,80 +1,173 @@
+#
+#  docker-compose.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
 services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
-      MYSQL_DATABASE: ${DB_NAME:-dsbd_homework1}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
-      interval: 10s
-      timeout: 60s
-      retries: 20
-      start_period: 60s
-
-  crawler:
-    build:
-      context: ./Crawler
-      dockerfile: Dockerfile
-    environment:
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_USER=${DB_USER:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - DB_NAME=${DB_NAME:-dsbd_homework1}
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - app-network
-    restart: on-failure
-
-  user_server:
-    build:
-      context: ./Users
-      dockerfile: Dockerfile
-    ports:
-      - "${AUTH_SERVER_PORT:-50051}:50051"
-    environment:
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_USER=${DB_USER:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - DB_NAME=${DB_NAME:-dsbd_homework1}
-      - AUTH_SERVER_PORT=${AUTH_SERVER_PORT:-50051}
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  watch_server:
-    build:
-      context: ./Watch
-      dockerfile: Dockerfile
-    ports:
-      - "${WATCH_SERVER_PORT:-50052}:50052"
-    environment:
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_USER=${DB_USER:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - DB_NAME=${DB_NAME:-dsbd_homework1}
-      - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - app-network
-
+    mysql:
+        image: mysql:8.0
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+            MYSQL_DATABASE: ${DB_NAME:-dsbd_homework1}
+        ports:
+        - "3306:3306"
+        volumes:
+        - mysql_data:/var/lib/mysql
+        networks:
+        - whyfinance-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
+            interval: 10s
+            timeout: 60s
+            retries: 20
+            start_period: 60s
+        restart: always
+#---------------------------------------
+    mysql_create_tables:
+        build:
+            context: ./Database
+            dockerfile: Dockerfile
+        environment:
+        - DB_HOST=${DB_HOST:-mysql}
+        - DB_PORT=${DB_PORT:-3306}
+        - DB_USER=${DB_USER:-root}
+        - DB_PASSWORD=${DB_PASSWORD:-root}
+        - DB_NAME=${DB_NAME:-dsbd_homework1}
+        networks:
+        - whyfinance-network
+        depends_on:
+            mysql:
+                condition: service_healthy
+#---####################################
+    proxy:
+        build:
+            context: ./Proxy
+            dockerfile: Dockerfile
+        ports:
+        - 80:80 # host:container
+        environment:
+        - PROXY_PORT=80
+        - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
+        - USER_SERVER_PORT=${USER_SERVER_PORT:-50051}
+        networks:
+        - whyfinance-network
+        depends_on:
+        - mysql_create_tables
+        - user_server
+        - watch_server
+        restart: always
+#---####################################
+    circuit_breaker_redis:
+        image: redis:alpine
+        ports:
+        - 30111:6379 # host:container
+        networks:
+        - whyfinance-network
+        restart: always
+#---------------------------------------
+    circuit_breaker:
+        build:
+            context: ./CircuitBreaker
+            dockerfile: Dockerfile
+        environment:
+        - REDIS_PORT=6379
+        - CIRCUIT_BREAKER_PORT=30112
+        ports:
+        - 30112:30112
+        depends_on:
+        - circuit_breaker_redis
+        networks:
+        - whyfinance-network
+        restart: always
+#---####################################
+    crawler:
+        build:
+            context: ./Crawler
+            dockerfile: Dockerfile
+        environment:
+        - DB_HOST=${DB_HOST:-mysql}
+        - DB_PORT=${DB_PORT:-3306}
+        - DB_USER=${DB_USER:-root}
+        - DB_PASSWORD=${DB_PASSWORD:-root}
+        - DB_NAME=${DB_NAME:-dsbd_homework1}
+        - CIRCUIT_BREAKER_PORT=30112
+        - CRAWLER_TIME_INTERVAL=3
+        depends_on:
+            mysql:
+                condition: service_healthy
+        networks:
+        - whyfinance-network
+        restart: on-failure
+#---####################################
+    user_redis:
+        image: redis:alpine
+        ports:
+        - 30113:6379 # host:container
+        networks:
+        - whyfinance-network
+        restart: always
+#---------------------------------------
+    user_server:
+        build:
+            context: ./Users
+            dockerfile: Dockerfile
+        ports:
+        - "${USER_SERVER_PORT:-50051}:50051"
+        environment:
+        - DB_HOST=${DB_HOST:-mysql}
+        - DB_PORT=${DB_PORT:-3306}
+        - DB_USER=${DB_USER:-root}
+        - DB_PASSWORD=${DB_PASSWORD:-root}
+        - DB_NAME=${DB_NAME:-dsbd_homework1}
+        - USER_SERVER_PORT=${USER_SERVER_PORT:-50051}
+        - REDIS_PORT=6379
+        depends_on:
+            user_redis:
+                condition: service_started
+            mysql:
+                condition: service_healthy
+        networks:
+        - whyfinance-network
+        restart: always
+#---####################################
+    watch_redis:
+        image: redis:alpine
+        ports:
+        - 30114:6379 # host:container
+        networks:
+        - whyfinance-network
+        restart: always
+#---------------------------------------
+    watch_server:
+        build:
+            context: ./Watch
+            dockerfile: Dockerfile
+        ports:
+        - "${WATCH_SERVER_PORT:-50052}:50052"
+        environment:
+        - DB_HOST=${DB_HOST:-mysql}
+        - DB_PORT=${DB_PORT:-3306}
+        - DB_USER=${DB_USER:-root}
+        - DB_PASSWORD=${DB_PASSWORD:-root}
+        - DB_NAME=${DB_NAME:-dsbd_homework1}
+        - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
+        - REDIS_PORT=6379
+        depends_on:
+            watch_redis:
+                condition: service_started
+            mysql:
+                condition: service_healthy
+        networks:
+        - whyfinance-network
+        restart: always
+########################################
 networks:
-  app-network:
-    driver: bridge
-
+    whyfinance-network:
+        driver: bridge
+########################################
 volumes:
-  mysql_data:
+    mysql_data:

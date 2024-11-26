@@ -1,3 +1,13 @@
+#
+#  user.py
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Luca Montera on 24/11/24.
+#
+
+import redis
 import grpc
 from concurrent import futures
 import mysql.connector
@@ -7,11 +17,8 @@ from datetime import datetime
 import user_pb2
 import user_pb2_grpc
 
-
 import logging
 from logging.handlers import RotatingFileHandler
-
-
 
 log_file = "./logs/app.log"
 
@@ -31,11 +38,11 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "mysql"),
-    "user": os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASSWORD", "root"),
-    "database": os.getenv("DB_NAME", "dsbd_homework1"),
-    "port": int(os.getenv("DB_PORT", 3306))
+    "host": os.environ.get('DB_HOST', 'mysql'),
+    "user": os.environ.get('DB_USER', 'root'),
+    "password": os.environ.get('DB_PASSWORD', 'root'),
+    "database": os.environ.get('DB_NAME', 'dsbd_homework1'),
+    "port": int(os.environ.get('DB_PORT', '3306'))
 }
 
 class UserService(user_pb2_grpc.UserServiceServicer):
@@ -76,6 +83,20 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             logger.info(f"Error accessing database: {err}")
 
     def RegisterUser(self, request, context):
+        metadata = dict(context.invocation_metadata())
+        request_id = metadata.get('request_id', None)
+        if request_id is not None:
+            # Check request in cache
+            try:
+                # Return cached message (at-most-once)
+                response = user_pb2.UserResponse()
+                serialized_response = redis_server.get(request_id)
+                response.ParseFromString(serialized_response)
+                logger.info(f"Cached Request: {request_id}")
+                return response
+            except:
+                pass
+        #
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
             cursor = conn.cursor()
@@ -92,7 +113,11 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             cursor.close()
             conn.close()
             
-            return user_pb2.UserResponse(message=f"User {request.email} registered successfully")
+            response = user_pb2.UserResponse(message=f"User {request.email} registered successfully")
+            if request_id is not None:
+                # Store in cache
+                redis_server.set(request_id, response.SerializeToString())
+            return response
             
         except mysql.connector.Error as err:
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -100,13 +125,27 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             return user_pb2.UserResponse(message=f"Error: {err}")
 
     def UpdateUser(self, request, context):
+        metadata = dict(context.invocation_metadata())
+        request_id = metadata.get('request_id', None)
+        if request_id is not None:
+            # Check request in cache
+            try:
+                # Return cached message (at-most-once)
+                response = user_pb2.UserResponse()
+                serialized_response = redis_server.get(request_id)
+                response.ParseFromString(serialized_response)
+                logger.info(f"Cached Request: {request_id}")
+                return response
+            except:
+                pass
+        #
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
             cursor = conn.cursor()
             
             cursor.execute(
                 "UPDATE users SET ticker = %s WHERE email = %s",
-                (request.new_ticker, request.email)
+                (request.ticker, request.email)
             )
             conn.commit()
             
@@ -119,7 +158,11 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             cursor.close()
             conn.close()
             
-            return user_pb2.UserResponse(message=message)
+            response = user_pb2.UserResponse(message=message)
+            if request_id is not None:
+                # Store in cache
+                redis_server.set(request_id, response.SerializeToString())
+            return response
             
         except mysql.connector.Error as err:
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -127,6 +170,20 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             return user_pb2.UserResponse(message=f"Error: {err}")
 
     def DeleteUser(self, request, context):
+        metadata = dict(context.invocation_metadata())
+        request_id = metadata.get('request_id', None)
+        if request_id is not None:
+            # Check request in cache
+            try:
+                # Return cached message (at-most-once)
+                response = user_pb2.UserResponse()
+                serialized_response = redis_server.get(request_id)
+                response.ParseFromString(serialized_response)
+                logger.info(f"Cached Request: {request_id}")
+                return response
+            except:
+                pass
+        #
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
             cursor = conn.cursor()
@@ -146,7 +203,11 @@ class UserService(user_pb2_grpc.UserServiceServicer):
             cursor.close()
             conn.close()
             
-            return user_pb2.UserResponse(message=message)
+            response = user_pb2.UserResponse(message=message)
+            if request_id is not None:
+                # Store in cache
+                redis_server.set(request_id, response.SerializeToString())
+            return response
             
         except mysql.connector.Error as err:
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -156,12 +217,20 @@ class UserService(user_pb2_grpc.UserServiceServicer):
 
 def serve():
     try:
+        #
+        global redis_server
+        redis_port = int(os.environ['REDIS_PORT'])
+        redis_server = redis.Redis(host='user_redis', port=redis_port, decode_responses=True)
+        print(redis_server.ping())
+        #   
+        user_server_port = str(int(os.environ['USER_SERVER_PORT']))
+        #
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         user_pb2_grpc.add_UserServiceServicer_to_server(UserService(), server)
-        server.add_insecure_port('[::]:50051')
+        server.add_insecure_port('[::]:' + user_server_port)
         server.start()
         logger.info("Server started")
-        logger.info("Il server gRPC è avviato con successo.")
+        logger.info("Il server gRPC è avviato con successo alla porta " + user_server_port)
         server.wait_for_termination()
     except Exception as e:
         logger.info(f"Errore durante l'avvio del server: {e}")
