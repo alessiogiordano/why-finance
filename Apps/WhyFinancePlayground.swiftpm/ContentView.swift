@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  WhyFinanceApp
-//
-//  Created by Alessio Giordano on 26/11/24.
-//
-
 import SwiftUI
 import TipKit
 
@@ -18,6 +11,8 @@ struct ContentView: View {
     @State var id: UUID = .init()
     @State var offset: CGFloat = 0.0
     //
+    @Environment(\.colorScheme) var colorScheme
+    //
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -30,10 +25,6 @@ struct ContentView: View {
                     .offset(y: offset * -1)
                     .environment(\.colorScheme, .light)
                     .allowsHitTesting(false)
-                    #if os(macOS)
-                    .ignoresSafeArea(.all)
-                    .offset(y: -12) // Title barc
-                    #endif
             }
             .coordinateSpace(.named("ScrollView"))
             .scrollContentBackground(.hidden)
@@ -50,7 +41,6 @@ struct ContentView: View {
                 try? Tips.resetDatastore()
                 try? Tips.configure()
             }
-            #if os(iOS)
             .toolbar {
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button {
@@ -64,45 +54,19 @@ struct ContentView: View {
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar, .bottomBar)
-            #endif
-            #if os(macOS)
-            .overlay(alignment: .bottom) {
-                HStack {
-                    Button {
-                        sheet.toggle()
-                    } label: {
-                        Label("Configura", systemImage: "info.circle")
-                    }.popoverTip(ConfigurationViewTip())
-                    Spacer()
-                    Button {
-                        id = .init()
-                    } label: {
-                        Label("Ricarica", systemImage: "arrow.clockwise")
-                    }
-                }.buttonStyle(.plain).labelStyle(.iconOnly).padding()
-            }
-            #endif
             .sheet(isPresented: $sheet) {
                 ConfigurationView(host: $host, email: $email, ticker: $ticker)
             }
             .background {
                 LinearGradient(colors: [.pink, .purple], startPoint: .top, endPoint: .bottom)
-                    #if os(iOS)
                     .overlay(.bar)
-                    #endif
-                    #if os(macOS)
-                    .opacity(0.5)
-                    #endif
                     .ignoresSafeArea(.all)
             }
-            #if os(macOS)
-            .visualEffect(material: .hudWindow, ignoresSafeArea: .all)
-            #endif
             .navigationTitle("Why Finance")
             .toolbarTitleDisplayMode(.inline)
         }
         .environment(\.colorScheme, .dark)
-        .environment(\.whyFinanceBaseURL, .whyFinanceBaseURL(host: host) ?? .whyFinanceBaseURL)
+        .environment(\.deviceColorScheme, colorScheme)
     }
 }
 
