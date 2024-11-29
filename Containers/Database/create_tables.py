@@ -4,10 +4,10 @@
 #  Anno Accademico 2024-25
 #  (C) 2024 Luca Montera, Alessio Giordano
 #
-#  Created by Luca Montera on 24/11/24.
+#  Updated by OpenAI Assistant
 #
 
-from os import environ # Environment Variables
+from os import environ  # Environment Variables
 import mysql.connector
 import time
 
@@ -24,7 +24,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-#-----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------
 
 #
 # Database
@@ -42,7 +42,12 @@ def wait_for_mysql(max_retries=30, delay=2):
     for i in range(max_retries):
         try:
             logger.info(f"Tentativo di connessione a MySQL {i+1}/{max_retries}")
-            conn = mysql.connector.connect(**DB_CONFIG)
+            conn = mysql.connector.connect(
+                host=DB_CONFIG["host"],
+                user=DB_CONFIG["user"],
+                password=DB_CONFIG["password"],
+                port=DB_CONFIG["port"]
+            )
             logger.info("Connessione a MySQL stabilita con successo!")
             return conn
         except mysql.connector.Error as err:
@@ -52,12 +57,23 @@ def wait_for_mysql(max_retries=30, delay=2):
                 time.sleep(delay)
     raise Exception("Impossibile connettersi al database dopo i tentativi massimi")
 
-def create_tables():
+def ensure_database_exists():
     try:
         conn = wait_for_mysql()
         cursor = conn.cursor()
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
+        logger.info(f"Database '{DB_CONFIG['database']}' creato o già esistente.")
+        conn.close()
+    except Exception as e:
+        logger.error(f"Errore durante la creazione del database: {e}")
+        raise
 
-        
+def create_tables():
+    try:
+        ensure_database_exists()
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 email VARCHAR(255) PRIMARY KEY,
@@ -74,11 +90,10 @@ def create_tables():
                 timestamp DATETIME
             );
         """)
-        logger.info("Tabella 'stocks' creata o già esistente.")
+        logger.info("Tabella 'stock_data' creata o già esistente.")
 
         conn.commit()
         logger.info("Database inizializzato con successo!")
-
     except Exception as e:
         logger.error(f"Errore durante la creazione delle tabelle: {e}")
         raise
@@ -87,7 +102,6 @@ def create_tables():
             cursor.close()
             conn.close()
             logger.info("Connessione al database chiusa.")
-
 
 if __name__ == "__main__":
     try:
