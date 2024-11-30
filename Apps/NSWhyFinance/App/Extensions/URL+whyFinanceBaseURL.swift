@@ -8,7 +8,8 @@
 import Foundation
 
 extension URL {
-    static var whyFinanceBaseURL: URL { .init(string: "https://fictional-disco-vqq7jv4wpv736x45-80.app.github.dev/")! }
+    static var whyFinanceGithubCodespacesURL: URL { .init(string: "https://fictional-disco-vqq7jv4wpv736x45-80.app.github.dev/")! }
+    static var whyFinanceBaseURL: URL { .init(string: "http://localhost:80/")! }
     
     static func whyFinanceBaseURL(host: String?) -> URL? {
         let baseURL: URL

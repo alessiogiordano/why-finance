@@ -86,7 +86,8 @@ struct ContentView: View {
                 ConfigurationView(host: $host, email: $email, ticker: $ticker)
             }
             .background {
-                LinearGradient(colors: [.pink, .purple], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.whyFinanceLight, .whyFinanceDark],
+                               startPoint: .top, endPoint: .bottom)
                     #if os(iOS)
                     .overlay(.bar)
                     #endif

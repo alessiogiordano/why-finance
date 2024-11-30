@@ -32,3 +32,5 @@ echo "eend $?" >> /etc/init.d/mount_shared
 echo "}" >> /etc/init.d/mount_shared
 chmod +x /etc/init.d/mount_shared
 rc-update add mount_shared boot
+vim /etc/ssh/sshd_config # AllowTcpForwarding
+# sudo ssh -v -L 80:10.0.0.16:80 root@10.0.0.16

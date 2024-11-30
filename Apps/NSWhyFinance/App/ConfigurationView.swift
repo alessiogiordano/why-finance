@@ -36,8 +36,16 @@ struct ConfigurationView: View {
                     Section {
                         TextField("Email", text: $emailField)
                             .textContentType(.emailAddress)
+                        #if os(macOS)
+                        LabeledContent("Ticker") {
+                            TextField("Ticker", text: $tickerField)
+                                .textCase(.uppercase)
+                                .labelsHidden()
+                        }
+                        #else
                         TextField("Ticker", text: $tickerField)
                             .textCase(tickerField.isEmpty ? .none : .uppercase)
+                        #endif
                     }
                 } else {
                     // User Update and Deletion
@@ -72,8 +80,10 @@ struct ConfigurationView: View {
             #endif
             .toolbar {
                 #if os(macOS)
-                ToolbarItem(placement: .destructiveAction) {
-                    Button("Cancella tutti i dati utente", role: .destructive, action: cancel)
+                if !email.isEmpty {
+                    ToolbarItem(placement: .destructiveAction) {
+                        Button("Cancella tutti i dati utente", role: .destructive, action: cancel)
+                    }
                 }
                 #endif
                 ToolbarItem(placement: .cancellationAction) {

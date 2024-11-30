@@ -8,7 +8,7 @@
 import SwiftUI
 
 extension View {
-    func systemSmallWidget(background: LinearGradient? = LinearGradient(colors: [.pink, .purple], startPoint: .top, endPoint: .bottom)) -> some View {
+    func systemSmallWidget(background: LinearGradient? = LinearGradient(colors: [.whyFinanceLight, .whyFinanceDark], startPoint: .top, endPoint: .bottom)) -> some View {
         self.modifier(SystemSmallWidget(background: background))
     }
 }
@@ -22,7 +22,8 @@ extension LinearGradient {
 struct SystemSmallWidget: ViewModifier {
     let background: LinearGradient?
     
-    init(background: LinearGradient? = LinearGradient(colors: [.pink, .purple], startPoint: .top, endPoint: .bottom)) {
+    init(background: LinearGradient? = LinearGradient(colors: [.whyFinanceLight, .whyFinanceDark],
+                                                      startPoint: .top, endPoint: .bottom)) {
         self.background = background
     }
     

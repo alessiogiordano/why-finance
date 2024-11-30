@@ -40,7 +40,7 @@ DB_CONFIG = {
     "host": environ.get('DB_HOST', 'mysql'),
     "user": environ.get('DB_USER', 'root'),
     "password": environ.get('DB_PASSWORD', 'root'),
-    "database": environ.get('DB_NAME', 'dsbd_homework1'),
+    "database": environ.get('DB_NAME', 'whyfinance_hw1'),
     "port": int(environ.get('DB_PORT', '3306'))
 }
 def connect_to_db():
