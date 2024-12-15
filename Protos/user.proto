@@ -18,12 +18,15 @@ service UserService {
 }
 
 message UserDataRequest {
-    string email = 1;
+    string device_id = 1;
     string ticker = 2;
+    string device_token = 3; 
+    float low_value = 4; 
+    float high_value = 5; 
 }
 
 message UserDeletionRequest {
-    string email = 1;
+    string device_id = 1;
 }
 
 message UserResponse {

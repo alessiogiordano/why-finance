@@ -34,21 +34,31 @@ logger = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------------------
 
 #
-# Database
+# Database configurations
 #
-DB_CONFIG = {
-    "host": environ.get('DB_HOST', 'mysql'),
+USER_DB_CONFIG = {
+    "host": environ.get('USER_DB_HOST', 'mysql_user'),
     "user": environ.get('DB_USER', 'root'),
     "password": environ.get('DB_PASSWORD', 'root'),
-    "database": environ.get('DB_NAME', 'dsbd_homework1'),
+    "database": environ.get('USER_DB_NAME', 'user_db'),
     "port": int(environ.get('DB_PORT', '3306'))
 }
-def connect_to_db():
-    conn = mysql.connector.connect(**DB_CONFIG)
+
+TICKER_DB_CONFIG = {
+    "host": environ.get('TICKER_DB_HOST', 'mysql_ticker'),
+    "user": environ.get('DB_USER', 'root'),
+    "password": environ.get('DB_PASSWORD', 'root'),
+    "database": environ.get('TICKER_DB_NAME', 'ticker_db'),
+    "port": int(environ.get('DB_PORT', '3306'))
+}
+
+def connect_to_db(db_config):
+    conn = mysql.connector.connect(**db_config)
     return conn
+
 #-----------------------------------------------------------------------------------------
 def fetch_tickers():
-    conn = connect_to_db()
+    conn = connect_to_db(USER_DB_CONFIG)
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT ticker from users")
     tickers = cursor.fetchall()
@@ -56,7 +66,7 @@ def fetch_tickers():
     return tickers
 #-----------------------------------------------------------------------------------------
 def save_stock_data(ticker, value, timestamp):
-    conn = connect_to_db()
+    conn = connect_to_db(TICKER_DB_CONFIG)
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO stock_data (ticker, value, timestamp) VALUES (%s, %s, %s)",
@@ -65,7 +75,6 @@ def save_stock_data(ticker, value, timestamp):
     conn.commit()
     conn.close()
 #-----------------------------------------------------------------------------------------
-
 
 #
 # Circuit Breaker
@@ -82,7 +91,6 @@ def report_successful_connection(circuit_breaker):
 def report_failed_connection(circuit_breaker):
     circuit_breaker.failure(yfinance_circuit_breaker)
 #-----------------------------------------------------------------------------------------
-
 
 def fetch_stock_price(ticker, max_retries=1, cooldown=60):
     with grpc.insecure_channel(circuit_breaker_host) as channel:
@@ -126,21 +134,22 @@ def collect_data():
             save_stock_data(ticker, price, timestamp)
             logger.info(f"Dati salvati per {ticker}: {price} a {timestamp}")
 
-def wait_for_mysql():
+def wait_for_mysql(db_config):
     while True:
         try:
-            conn = mysql.connector.connect(**DB_CONFIG)
+            conn = connect_to_db(db_config)
             conn.close()
-            logger.info("Connesso con successo al database!")
+            logger.info(f"Connesso con successo al database {db_config['database']}!")
             break
         except mysql.connector.Error as e:
-            logger.info("In attesa del database MySQL... Riprovo in 5 secondi.")
-            logger.info("La configuraizone è: {DB_CONFIG}")
+            logger.info(f"In attesa del database {db_config['database']}... Riprovo in 5 secondi.")
             time.sleep(5)
+
 
 if __name__ == "__main__":
     count = 0
-    wait_for_mysql()
+    wait_for_mysql(USER_DB_CONFIG)
+    wait_for_mysql(TICKER_DB_CONFIG)
     while True:
         collect_data()
         logger.info("Ciclo di inserimento n. {}".format(count))

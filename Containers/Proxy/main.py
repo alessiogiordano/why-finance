@@ -77,39 +77,69 @@ def watch_get_ticker(ticker):
 
 # PUT /users/email
 # -- ticker
-@app.route('/users/<email>', methods=['PUT'])
-def user_put_user_data(email):
-    content_length = request.content_length
-    if content_length is None:
-        return make_response('Provide a ticker as the body of the request', 400) # Bad Request
-    if content_length > 16:
+# PUT /users/<device_id>
+# Body: JSON { "ticker": "<ticker>", "device_token": "<device_token>", "low_value": <low_value>, "high_value": <high_value> }
+@app.route('/users/<device_id>', methods=['PUT'])
+def user_put_user_data(device_id):
+    if not request.is_json:
+        return make_response('Request body must be in JSON format', 400)  # Bad Request
+
+    data = request.get_json()
+
+    # Validazione dei parametri richiesti
+    required_fields = ['ticker', 'device_token', 'low_value', 'high_value']
+    for field in required_fields:
+        if field not in data:
+            return make_response(f"Missing required field: {field}", 400)  # Bad Request
+
+    # Estrarre i valori dal JSON
+    ticker = data['ticker']
+    device_token = data['device_token']
+    low_value = data['low_value']
+    high_value = data['high_value']
+
+    # Controlli sulla lunghezza del ticker
+    if len(ticker) > 16:
         # Twice the length of NASDAQ's maximum ticker symbol length (8)
         # https://www.nasdaqtrader.com/Trader.aspx?id=StockSymChanges
-        return make_response('Tickers longer than 16 characters are not supported', 413) # Content Too Large
+        return make_response('Tickers longer than 16 characters are not supported', 413)  # Content Too Large
+
+    # Creare la richiesta gRPC
     with grpc.insecure_channel(user_service_host, options=retry_configuration) as channel:
         user_service = UserServiceStub(channel)
-        ticker = request.get_data(as_text=True)
-        req = UserDataRequest(email=email, ticker=ticker)
-        try: # Add new record
+        req = UserDataRequest(
+            device_id=device_id,
+            ticker=ticker,
+            device_token=device_token,
+            low_value=low_value,
+            high_value=high_value
+        )
+        try:
+            # Add new record
             response = user_service.RegisterUser(req, metadata=generateMetadata())
-        except:
-            try: # Update existing record
-                response = user_service.UpdateUser(req, metadata=generateMetadata())
-            except Exception as e:
-                return make_response(str(e), 500) # Internal Server Error
-        logger.info("PUT " + email + " for " + ticker)
-        return make_response('', 204) # No Content
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.ALREADY_EXISTS:
+                try:
+                    # Update existing record 
+                    response = user_service.UpdateUser(req, metadata=generateMetadata())
+                except grpc.RpcError as update_error:
+                    return make_response(f"Update failed: {update_error.details()}", 500)  # Internal Server Error
+            else:
+                return make_response(f"Registration failed: {e.details()}", 500)  # Internal Server Error
+
+    logger.info(f"PUT {device_id} for {ticker}")
+    return make_response('', 204)  # Success
 #-----------------------------------------------------------------------------------------
 
 # DELETE /users/email
-@app.route('/users/<email>', methods=['DELETE'])
-def user_delete_user_data(email):
+@app.route('/users/<device_id>', methods=['DELETE'])
+def user_delete_user_data(device_id):
     with grpc.insecure_channel(user_service_host, options=retry_configuration) as channel:
         user_service = UserServiceStub(channel)
-        req = UserDeletionRequest(email=email)
+        req = UserDeletionRequest(device_id=device_id)
         try: # Remove existing record
             response = user_service.DeleteUser(req, metadata=generateMetadata())
-            logger.info("DELETE " + email)
+            logger.info("DELETE " + device_id)
             return make_response('', 204) # No Content
         except Exception as e:
             return make_response(str(e), 500) # Internal Server Error
