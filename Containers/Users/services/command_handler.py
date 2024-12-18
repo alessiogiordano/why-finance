@@ -5,6 +5,8 @@ class CommandHandler:
         self.db_config = db_config
 
     def register_user(self, device_id, ticker, device_token, low_value, high_value):
+        if low_value is not None and high_value is not None and low_value >= high_value:
+            raise ValueError("Il valore low_value deve essere minore di high_value.")
         conn = connect_to_db(self.db_config)
         cursor = conn.cursor()
         cursor.execute(
@@ -16,6 +18,8 @@ class CommandHandler:
         conn.close()
 
     def update_user(self, device_id, ticker, device_token, low_value, high_value):
+        if low_value is not None and high_value is not None and low_value >= high_value:
+            raise ValueError("Il valore low_value deve essere minore di high_value.")
         conn = connect_to_db(self.db_config)
         cursor = conn.cursor()
         cursor.execute(

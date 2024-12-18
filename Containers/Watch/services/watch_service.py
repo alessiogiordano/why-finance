@@ -5,10 +5,11 @@ from services.query_handler import QueryHandler
 from utils.logger import logger
 
 class WatchService(watch_pb2_grpc.WatchServiceServicer):
-    def __init__(self):
+    def __init__(self, redis_server):
         # Inizializziamo il query handler
         self.query_handler = QueryHandler()
         self.print_db_stats()
+        self.redis_server = redis_server
 
     def print_db_stats(self):
         """
@@ -48,15 +49,35 @@ class WatchService(watch_pb2_grpc.WatchServiceServicer):
         """
         Metodo gRPC per ottenere l'ultimo valore di una stock.
         """
+        metadata = dict(context.invocation_metadata())
+        request_id = metadata.get('request_id', None)
+        if request_id is not None:
+            # Check request in cache
+            try:
+                # Return cached message (at-most-once)
+                response = watch_pb2.StockResponse()
+                serialized_response = self.redis_server.get(request_id)
+                response.ParseFromString(serialized_response)
+                logger.info(f"Cached Request: {request_id}")
+                return response
+            except:
+                pass
+        #
         try:
             logger.info(f"Ricevuta richiesta GetLastStockValue per ticker: {request.ticker}")
             value = self.query_handler.get_last_stock_value(request.ticker)
             if value is not None:
-                return watch_pb2.StockResponse(value=value)
+                response = watch_pb2.StockResponse(value=value)
             else:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details("Nessun dato trovato per questa stock")
-                return watch_pb2.StockResponse(value=0.0)
+                response = watch_pb2.StockResponse(value=0.0)
+            
+            if request_id is not None:
+                    # Store in cache
+                    self.redis_server.set(request_id, response.SerializeToString())
+            return response
+        
         except Exception as e:
             logger.error(f"Errore durante GetLastStockValue: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -67,15 +88,34 @@ class WatchService(watch_pb2_grpc.WatchServiceServicer):
         """
         Metodo gRPC per calcolare il valore medio di una stock.
         """
+        metadata = dict(context.invocation_metadata())
+        request_id = metadata.get('request_id', None)
+        if request_id is not None:
+            # Check request in cache
+            try:
+                # Return cached message (at-most-once)
+                response = watch_pb2.StockResponse()
+                serialized_response = self.redis_server.get(request_id)
+                response.ParseFromString(serialized_response)
+                logger.info(f"Cached Request: {request_id}")
+                return response
+            except:
+                pass
+        #
         try:
             logger.info(f"Ricevuta richiesta CalculateAverageStockValue per ticker: {request.ticker}, count: {request.count}")
             average_value = self.query_handler.calculate_average_stock_value(request.ticker, request.count)
             if average_value is not None:
-                return watch_pb2.StockResponse(value=average_value)
+                response = watch_pb2.StockResponse(value=average_value)
             else:
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details("Nessun dato trovato per questa stock")
-                return watch_pb2.StockResponse(value=0.0)
+                response = watch_pb2.StockResponse(value=0.0)
+            
+            if request_id is not None:
+                    # Store in cache
+                    self.redis_server.set(request_id, response.SerializeToString())
+            return response
         except Exception as e:
             logger.error(f"Errore durante CalculateAverageStockValue: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)

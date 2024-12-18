@@ -32,7 +32,7 @@ def serve():
     watch_server_port = str(int(os.environ['WATCH_SERVER_PORT']))
     #
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    watch_pb2_grpc.add_WatchServiceServicer_to_server(WatchService(), server)
+    watch_pb2_grpc.add_WatchServiceServicer_to_server(WatchService(redis_server), server)
     server.add_insecure_port('[::]:' + watch_server_port)
     server.start()
     logger.info(f"gRPC Server started at {datetime.now()}")

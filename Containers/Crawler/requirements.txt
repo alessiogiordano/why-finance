@@ -2,3 +2,5 @@ yfinance
 mysql-connector-python
 grpcio
 protobuf
+kafka-python
+six

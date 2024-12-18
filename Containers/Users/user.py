@@ -26,7 +26,7 @@ def serve():
 
         user_server_port = str(int(os.environ['USER_SERVER_PORT']))
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        user_pb2_grpc.add_UserServiceServicer_to_server(UserService(), server)
+        user_pb2_grpc.add_UserServiceServicer_to_server(UserService(redis_server), server)
         server.add_insecure_port('[::]:' + user_server_port)
         server.start()
         logger.info("Server started")
