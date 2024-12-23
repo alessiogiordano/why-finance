@@ -11,10 +11,11 @@ FROM python:3.12
 
 WORKDIR /why-finance/crawler
 
-COPY . .
+COPY Protos/.build .
+COPY Sources .
+COPY Containers/Crawler/ .
 RUN mkdir ./logs
 RUN touch ./logs/app.log
-
 
 RUN apt-get update && \
     apt-get install -y default-mysql-client && \
@@ -22,4 +23,4 @@ RUN apt-get update && \
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT ["python", "./crawler.py"]
+ENTRYPOINT ["python", "./main.py"]

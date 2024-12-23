@@ -11,7 +11,9 @@ FROM alpine:latest
 
 WORKDIR /why-finance/proxy
 
-COPY . .
+COPY Protos/.build .
+COPY Sources .
+COPY Containers/Proxy/ .
 RUN mkdir ./logs
 RUN touch ./logs/app.log
 

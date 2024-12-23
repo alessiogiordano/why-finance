@@ -1,0 +1,34 @@
+//
+//  users.proto
+//  Progetto di Distributed Systems and Big Data
+//  Anno Accademico 2024-25
+//  (C) 2024 Luca Montera, Alessio Giordano
+//
+//  Created by Luca Montera on 21/11/24.
+//
+
+syntax = "proto3";
+
+package users;
+
+service UserService {
+    rpc RegisterUser (UserDataRequest) returns (UserResponse);
+    rpc UpdateUser (UserDataRequest) returns (UserResponse);
+    rpc DeleteUser (UserDeletionRequest) returns (UserResponse);
+}
+
+message UserDataRequest {
+    string device_id = 1;
+    string ticker = 2;
+    optional string device_token = 3; 
+    optional float low_value = 4; 
+    optional float high_value = 5; 
+}
+
+message UserDeletionRequest {
+    string device_id = 1;
+}
+
+message UserResponse {
+    string message = 1;
+}

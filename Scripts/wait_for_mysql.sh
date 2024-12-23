@@ -59,12 +59,6 @@ python check_mysql.py
 
 if [ $? -eq 0 ]; then
     echo "MySQL is up - executing migration and starting data collector"
-    
-    echo "Running database migrations..."
-    python migrations/create_table_stock_data_and_users.py
-    
-    echo "Starting data collector..."
-    python data_collector.py
 else
     echo "Failed to connect to MySQL after maximum retries"
     exit 1

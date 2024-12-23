@@ -8,61 +8,61 @@
 #
 
 services:
-    mysql:
-        container_name: mysql
-        image: mysql:8.0
-        environment:
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
-            MYSQL_DATABASE: ${DB_NAME:-whyfinance_hw1}
-        ports:
-        - "3306:3306"
-        volumes:
-        - mysql_data:/var/lib/mysql
-        networks:
-        - whyfinance-network
-        healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
-            interval: 10s
-            timeout: 60s
-            retries: 20
-            start_period: 60s
-        restart: always
-#---------------------------------------
-    mysql_create_tables:
-        container_name: mysql_create_tables
-        build:
-            context: ./Database
-            dockerfile: Dockerfile
-        environment:
-        - DB_HOST=${DB_HOST:-mysql}
-        - DB_PORT=${DB_PORT:-3306}
-        - DB_USER=${DB_USER:-root}
-        - DB_PASSWORD=${DB_PASSWORD:-root}
-        - DB_NAME=${DB_NAME:-whyfinance_hw1}
-        networks:
-        - whyfinance-network
-        depends_on:
-            mysql:
-                condition: service_healthy
-#---####################################
     proxy:
         container_name: proxy
         build:
-            context: ./Proxy
-            dockerfile: Dockerfile
+            context: ../
+            dockerfile: Containers/Proxy/Dockerfile
         ports:
-        - 80:80 # host:container
+        - "${PROXY_PORT}:${PROXY_PORT}" # host:container
         environment:
-        - PROXY_PORT=${PROXY_PORT:-80}
-        - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
-        - USER_SERVER_PORT=${USER_SERVER_PORT:-50051}
+        - PROXY_PORT=${PROXY_PORT} #------------------------------------------------------
+        - STOCKS_PORT=${STOCKS_PORT}
+        - USERS_PORT=${USERS_PORT}
         networks:
         - whyfinance-network
         depends_on:
-        - user_server
-        - watch_server
+        - users
+        - stocks
         - crawler
         restart: always
+#---####################################
+    broker:
+        container_name: broker
+        image: apache/kafka:3.7.2
+        ports:
+        - "9092:9092"
+        - "9093:9093"
+        networks:
+        - whyfinance-network
+        environment:
+        - KAFKA_NODE_ID=1 #---------------------------------------------------------------
+        - KAFKA_PROCESS_ROLES=broker,controller
+        - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+        - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://broker:9092
+        - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+        - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+        - KAFKA_CONTROLLER_QUORUM_VOTERS=1@broker:9093
+        - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+        - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+        - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+        - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+        - KAFKA_NUM_PARTITIONS=1
+        restart: always
+#---------------------------------------
+    broker_init:
+        container_name: broker_init
+        build:
+            context: ../
+            dockerfile: Containers/Broker/Dockerfile
+        networks:
+        - whyfinance-network
+        environment:
+        - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
+        - KAFKA_TOPICS=${KAFKA_TOPICS}
+        depends_on:
+        - broker
+        restart: on-failure
 #---####################################
     circuit_breaker_redis:
         container_name: circuit_breaker_redis
@@ -76,13 +76,13 @@ services:
     circuit_breaker:
         container_name: circuit_breaker
         build:
-            context: ./CircuitBreaker
-            dockerfile: Dockerfile
+            context: ../
+            dockerfile: Containers/CircuitBreaker/Dockerfile
         environment:
-        - REDIS_PORT=${REDIS_PORT:-6379}
-        - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT:-30112}
+        - REDIS_PORT=${REDIS_PORT} #------------------------------------------------------
+        - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT}
         ports:
-        - 30112:30112
+        - "${CIRCUIT_BREAKER_PORT}:${CIRCUIT_BREAKER_PORT}"
         depends_on:
         - circuit_breaker_redis
         networks:
@@ -92,25 +92,131 @@ services:
     crawler:
         container_name: crawler
         build:
-            context: ./Crawler
-            dockerfile: Dockerfile
+            context: ../
+            dockerfile: Containers/Crawler/Dockerfile
         environment:
-        - DB_HOST=${DB_HOST:-mysql}
-        - DB_PORT=${DB_PORT:-3306}
-        - DB_USER=${DB_USER:-root}
-        - DB_PASSWORD=${DB_PASSWORD:-root}
-        - DB_NAME=${DB_NAME:-whyfinance_hw1}
-        - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT:-30112}
-        - CRAWLER_TIME_INTERVAL=${CRAWLER_TIME_INTERVAL:-60}
+        - USERS_DB_HOST=${USERS_DB_HOST} #------------------------------------------------
+        - USERS_DB_PORT=${USERS_DB_PORT}
+        - USERS_DB_USER=${USERS_DB_USER}
+        - USERS_DB_PASSWORD=${USERS_DB_PASSWORD}
+        - USERS_DB_NAME=${USERS_DB_NAME}
+        - STOCKS_DB_HOST=${STOCKS_DB_HOST} #----------------------------------------------
+        - STOCKS_DB_PORT=${STOCKS_DB_PORT}
+        - STOCKS_DB_USER=${STOCKS_DB_USER}
+        - STOCKS_DB_PASSWORD=${STOCKS_DB_PASSWORD}
+        - STOCKS_DB_NAME=${STOCKS_DB_NAME}
+        - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT} #----------------------------------
+        - CRAWLER_TIME_INTERVAL=${CRAWLER_TIME_INTERVAL} #--------------------------------
+        - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
+        - KAFKA_ACKS=all # Notifications should be reliable
+        - KAFKA_IN_FLIGHT_REQUESTS=1 # Ensure ordering of messages
+        - KAFKA_LINGER=0 # Latency is more important than throughput
+        - KAFKA_RETRIES=3
+        - KAFKA_GROUP_ID=crawler
+        - KAFKA_TOPICS=crawler
+        - KAFKA_POLLING_INTERVAL=1.0
         depends_on:
-            mysql_create_tables:
+            users_database_init:
+                condition: service_started
+            stocks_database_init:
+                condition: service_started
+            broker_init:
                 condition: service_started
         networks:
         - whyfinance-network
         restart: on-failure
 #---####################################
-    user_redis:
-        container_name: user_redis
+    alert:
+        container_name: alert
+        build:
+            context: ../
+            dockerfile: Containers/Alert/Dockerfile
+        environment:
+        - DB_HOST=${USERS_DB_HOST} #------------------------------------------------------
+        - DB_PORT=${USERS_DB_PORT}
+        - DB_USER=${USERS_DB_USER}
+        - DB_PASSWORD=${USERS_DB_PASSWORD}
+        - DB_NAME=${USERS_DB_NAME}
+        - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
+        - KAFKA_ACKS=all # Notifications should be reliable
+        - KAFKA_LINGER=0 # Latency is more important than throughput
+        - KAFKA_BATCH_SIZE=128000 # 128KB
+        - KAFKA_RETRIES=3
+        - KAFKA_GROUP_ID=alert
+        - KAFKA_TOPICS=alert
+        - KAFKA_POLLING_INTERVAL=1.0
+        depends_on:
+            users_database_init:
+                condition: service_started
+            stocks_database_init:
+                condition: service_started
+            broker_init:
+                condition: service_started
+        networks:
+        - whyfinance-network
+        restart: on-failure
+#---####################################
+    notification-center:
+        container_name: notification-center
+        build:
+            context: ../
+            dockerfile: Containers/NotificationCenter/Dockerfile
+        environment:
+        - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT} #----------------------------------
+        - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
+        - KAFKA_GROUP_ID=notification-center
+        - KAFKA_TOPICS=notification-center
+        - KAFKA_POLLING_INTERVAL=1.0
+        depends_on:
+            users_database_init:
+                condition: service_started
+            stocks_database_init:
+                condition: service_started
+            broker_init:
+                condition: service_started
+        networks:
+        - whyfinance-network
+        restart: on-failure
+#---####################################
+    users_database:
+        container_name: users_database
+        image: mysql:8.0
+        environment:
+            MYSQL_ROOT_PASSWORD: ${USERS_DB_PASSWORD} #-----------------------------------
+            MYSQL_DATABASE: ${USERS_DB_NAME}
+        ports:
+        - "3306:3306"
+        volumes:
+        - users_mysql_data:/var/lib/mysql
+        networks:
+        - whyfinance-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${USERS_DB_PASSWORD:-root}"]
+            interval: 10s
+            timeout: 60s
+            retries: 20
+            start_period: 60s
+        restart: always
+#---------------------------------------
+    users_database_init:
+        container_name: users_database_init
+        build:
+            context: ../
+            dockerfile: Containers/UserDatabase/Dockerfile
+        environment:
+        - DB_HOST=${USERS_DB_HOST} #------------------------------------------------------
+        - DB_PORT=${USERS_DB_PORT}
+        - DB_USER=${USERS_DB_USER}
+        - DB_PASSWORD=${USERS_DB_PASSWORD}
+        - DB_NAME=${USERS_DB_NAME}
+        networks:
+        - whyfinance-network
+        depends_on:
+            users_database:
+                condition: service_healthy
+#---------------------------------------
+    users_redis:
+        container_name: users_redis
         image: redis:alpine
         ports:
         - 30113:6379 # host:container
@@ -118,32 +224,76 @@ services:
         - whyfinance-network
         restart: always
 #---------------------------------------
-    user_server:
-        container_name: user_server
+    users:
+        container_name: users
         build:
-            context: ./Users
-            dockerfile: Dockerfile
+            context: ../
+            dockerfile: Containers/Users/Dockerfile
         ports:
-        - "${USER_SERVER_PORT:-50051}:50051"
+        - "${USERS_PORT}:50051"
         environment:
-        - DB_HOST=${DB_HOST:-mysql}
-        - DB_PORT=${DB_PORT:-3306}
-        - DB_USER=${DB_USER:-root}
-        - DB_PASSWORD=${DB_PASSWORD:-root}
-        - DB_NAME=${DB_NAME:-whyfinance_hw1}
-        - USER_SERVER_PORT=${USER_SERVER_PORT:-50051}
-        - REDIS_PORT=${REDIS_PORT:-6379}
+        - DB_HOST=${USERS_DB_HOST} #------------------------------------------------------
+        - DB_PORT=${USERS_DB_PORT}
+        - DB_USER=${USERS_DB_USER}
+        - DB_PASSWORD=${USERS_DB_PASSWORD}
+        - DB_NAME=${USERS_DB_NAME}
+        - USERS_PORT=${USERS_PORT} #------------------------------------------------------
+        - REDIS_PORT=${REDIS_PORT} #------------------------------------------------------
+        - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
+        - KAFKA_ACKS=1 # Absolute reliability is not a concern
+        - KAFKA_IN_FLIGHT_REQUESTS=1 # Ensure ordering of messages
+        - KAFKA_LINGER=0 # Latency is more important than throughput
+        - KAFKA_RETRIES=3
         depends_on:
-            user_redis:
+            users_redis:
                 condition: service_started
-            mysql_create_tables:
+            users_database_init:
+                condition: service_started
+            broker_init:
                 condition: service_started
         networks:
         - whyfinance-network
         restart: always
 #---####################################
-    watch_redis:
-        container_name: watch_redis
+    stocks_database:
+        container_name: stocks_database
+        image: mysql:8.0
+        environment:
+            MYSQL_ROOT_PASSWORD: ${STOCKS_DB_PASSWORD} #----------------------------------
+            MYSQL_DATABASE: ${STOCKS_DB_NAME}
+        ports:
+        - "3307:3306"
+        volumes:
+        - stocks_mysql_data:/var/lib/mysql
+        networks:
+        - whyfinance-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${STOCKS_DB_PASSWORD:-root}"]
+            interval: 10s
+            timeout: 60s
+            retries: 20
+            start_period: 60s
+        restart: always
+#---------------------------------------
+    stocks_database_init:
+        container_name: stocks_database_init
+        build:
+            context: ../
+            dockerfile: Containers/StockDatabase/Dockerfile
+        environment:
+        - DB_HOST=${STOCKS_DB_HOST} #-----------------------------------------------------
+        - DB_PORT=${STOCKS_DB_PORT}
+        - DB_USER=${STOCKS_DB_USER}
+        - DB_PASSWORD=${STOCKS_DB_PASSWORD}
+        - DB_NAME=${STOCKS_DB_NAME}
+        networks:
+        - whyfinance-network
+        depends_on:
+            stocks_database:
+                condition: service_healthy
+#---------------------------------------
+    stocks_redis:
+        container_name: stocks_redis
         image: redis:alpine
         ports:
         - 30114:6379 # host:container
@@ -151,25 +301,25 @@ services:
         - whyfinance-network
         restart: always
 #---------------------------------------
-    watch_server:
-        container_name: watch_server
+    stocks:
+        container_name: stocks
         build:
-            context: ./Watch
-            dockerfile: Dockerfile
+            context: ../
+            dockerfile: Containers/Stocks/Dockerfile
         ports:
-        - "${WATCH_SERVER_PORT:-50052}:50052"
+        - "${STOCKS_PORT}:50052"
         environment:
-        - DB_HOST=${DB_HOST:-mysql}
-        - DB_PORT=${DB_PORT:-3306}
-        - DB_USER=${DB_USER:-root}
-        - DB_PASSWORD=${DB_PASSWORD:-root}
-        - DB_NAME=${DB_NAME:-whyfinance_hw1}
-        - WATCH_SERVER_PORT=${WATCH_SERVER_PORT:-50052}
-        - REDIS_PORT=${REDIS_PORT:-6379}
+        - DB_HOST=${STOCKS_DB_HOST} #-----------------------------------------------------
+        - DB_PORT=${STOCKS_DB_PORT}
+        - DB_USER=${STOCKS_DB_USER}
+        - DB_PASSWORD=${STOCKS_DB_PASSWORD}
+        - DB_NAME=${STOCKS_DB_NAME}
+        - STOCKS_PORT=${STOCKS_PORT} #----------------------------------------------------
+        - REDIS_PORT=${REDIS_PORT}
         depends_on:
-            watch_redis:
+            stocks_redis:
                 condition: service_started
-            mysql_create_tables:
+            stocks_database_init:
                 condition: service_started
         networks:
         - whyfinance-network
@@ -180,4 +330,5 @@ networks:
         driver: bridge
 ########################################
 volumes:
-    mysql_data:
+    users_mysql_data:
+    stocks_mysql_data:

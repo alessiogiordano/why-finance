@@ -1,0 +1,30 @@
+//
+//  stocks.proto
+//  Progetto di Distributed Systems and Big Data
+//  Anno Accademico 2024-25
+//  (C) 2024 Luca Montera, Alessio Giordano
+//
+//  Created by Luca Montera on 21/11/24.
+//
+
+syntax = "proto3";
+
+package stocks;
+
+service StockService {
+    rpc GetLastStockValue (StockRequest) returns (StockResponse);
+    rpc CalculateAverageStockValue (AverageStockRequest) returns (StockResponse);
+}
+
+message StockRequest {
+    string ticker = 1;
+}
+
+message AverageStockRequest {
+    string ticker = 1;
+    int32 count = 2; 
+}
+
+message StockResponse {
+    double value = 1;
+}

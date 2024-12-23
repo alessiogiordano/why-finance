@@ -9,16 +9,16 @@
 
 FROM python:3.12
 
-WORKDIR /why-finance/users
+WORKDIR /why-finance/stocks
 
 COPY Protos/.build .
 COPY Sources .
-COPY Containers/Users/ .
+COPY Containers/Stocks/ .
 RUN mkdir ./logs
 RUN touch ./logs/app.log
 
 RUN pip install -r requirements.txt
 
-EXPOSE 50051
+EXPOSE 50052
 
 CMD ["python", "main.py"]
