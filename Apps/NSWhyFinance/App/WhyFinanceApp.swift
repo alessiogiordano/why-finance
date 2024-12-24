@@ -9,6 +9,12 @@ import SwiftUI
 
 @main
 struct WhyFinanceApp: App {
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor private var appData: AppData
+    #else
+    @UIApplicationDelegateAdaptor private var appData: AppData
+    #endif
+    
     var body: some Scene {
         #if os(macOS)
         Window("Why Finance", id: "main") {
@@ -30,9 +36,7 @@ struct WhyFinanceApp: App {
         .commands {
             CommandGroup(after: .appSettings) {
                 Button("Hard Reset") {
-                    UserDefaults.standard.removeObject(forKey: "ticker")
-                    UserDefaults.standard.removeObject(forKey: "email")
-                    UserDefaults.standard.removeObject(forKey: "host")
+                    appData.reset()
                 }
             }
         }

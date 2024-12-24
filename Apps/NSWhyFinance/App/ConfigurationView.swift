@@ -8,43 +8,154 @@
 import SwiftUI
 
 struct ConfigurationView: View {
-    @Binding var host: String
-    @Binding var email: String
-    @Binding var ticker: String
+    @EnvironmentObject private var appData: AppData
     //
     @State var hostField: String = ""
-    @State var emailField: String = ""
     @State var tickerField: String = ""
+    ///
+    @State var shouldAverageValues = false
+    @State var stockAverageCount = 2
+    ///
+    @State var shouldAlertHighThreshold: Bool = false
+    @State var highThreshold: Float = 150.0
+    @State var shouldAlertLowThreshold: Bool = false
+    @State var lowThreshold: Float = 25.0
     //
     @Environment(\.dismiss) var dismiss
     @State var httpTask: Task<Void,Never>? = nil
     @State var httpErrorAlert = false
     //
+    var invalidAlertInterval: Bool {
+        shouldAlertLowThreshold && shouldAlertHighThreshold && highThreshold < lowThreshold
+    }
     var hasModifiedContent: Bool {
-        (email != emailField) || (ticker != tickerField)
+        if appData.user?.ticker != tickerField { return true }
+        if shouldAlertHighThreshold != (appData.user?.highValue != nil) { return true }
+        if shouldAlertLowThreshold != (appData.user?.lowValue != nil) { return true }
+        if highThreshold != appData.user?.lowValue { return true }
+        if lowThreshold != appData.user?.lowValue { return true }
+        return false
+    }
+    //
+    var options: some View {
+        #if os(macOS)
+        Section {
+            Toggle(isOn: $shouldAverageValues) {
+                LabeledContent("Media il valore degli ultimi") {
+                    Stepper {
+                        Text("\(Int(stockAverageCount)) campioni")
+                            .monospacedDigit()
+                            .offset(x: -4)
+                    } onIncrement: {
+                        stockAverageCount += 1
+                    } onDecrement: {
+                        stockAverageCount = max(2, stockAverageCount - 1)
+                    }
+                }
+            }
+            Toggle(isOn: $shouldAlertHighThreshold) {
+                LabeledContent("Notifica se il valore sale sopra") {
+                    TextField("", value: $highThreshold, format: .number)
+                    Stepper {
+                        //
+                    } onIncrement: {
+                        highThreshold += 1
+                    } onDecrement: {
+                        highThreshold = max(max(0, highThreshold - 1), shouldAlertLowThreshold ? lowThreshold : 0)
+                    }.fixedSize()
+                }
+            }
+            Toggle(isOn: $shouldAlertLowThreshold) {
+                LabeledContent("Notifica se il valore scende sotto") {
+                    TextField("", value: $lowThreshold, format: .number)
+                    Stepper {
+                        //
+                    } onIncrement: {
+                        lowThreshold += 1
+                    } onDecrement: {
+                        lowThreshold = min(max(0, lowThreshold - 1), shouldAlertHighThreshold ? highThreshold : .greatestFiniteMagnitude)
+                    }.fixedSize()
+                }
+            }
+        }
+        #else
+        Group {
+            Toggle(isOn: $shouldAverageValues) {
+                Text("Calcola la media")
+            }
+            if shouldAverageValues {
+                Stepper {
+                    Text("Ultimi \(Int(stockAverageCount)) campioni")
+                        .monospacedDigit()
+                } onIncrement: {
+                    stockAverageCount += 1
+                } onDecrement: {
+                    stockAverageCount = max(2, stockAverageCount - 1)
+                }
+            }
+            //
+            Toggle(isOn: $shouldAlertHighThreshold) {
+                Text("Notifica quando sopra la soglia")
+            }
+            if shouldAlertHighThreshold {
+                HStack {
+                    TextField("", value: $highThreshold, format: .number)
+                        .foregroundStyle(.secondary)
+                        .keyboardType(.decimalPad)
+                    Stepper {
+                        //
+                    } onIncrement: {
+                        highThreshold += 1
+                    } onDecrement: {
+                        highThreshold = max(max(0, highThreshold - 1), shouldAlertLowThreshold ? lowThreshold : 0)
+                    }.fixedSize()
+                }
+            }
+            //
+            Toggle(isOn: $shouldAlertLowThreshold) {
+                Text("Notifica quando sotto la soglia")
+            }
+            if shouldAlertLowThreshold {
+                HStack {
+                    TextField("", value: $lowThreshold, format: .number)
+                        .foregroundStyle(.secondary)
+                        .keyboardType(.decimalPad)
+                    Stepper {
+                        //
+                    } onIncrement: {
+                        lowThreshold += 1
+                    } onDecrement: {
+                        lowThreshold = min(max(0, lowThreshold - 1), shouldAlertHighThreshold ? highThreshold : .greatestFiniteMagnitude)
+                    }.fixedSize()
+                }
+            }
+        }
+        #endif
     }
     //
     var body: some View {
         NavigationStack {
             Form {
-                if email.isEmpty {
+                if appData.user == nil {
                     // User Registration
                     Section {
                         TextField("Host", text: $hostField)
                             .textContentType(.URL)
                     }
                     Section {
-                        TextField("Email", text: $emailField)
-                            .textContentType(.emailAddress)
+                        //TextField("Email", text: $emailField)
+                         //   .textContentType(.emailAddress)
                         #if os(macOS)
                         LabeledContent("Ticker") {
                             TextField("Ticker", text: $tickerField)
                                 .textCase(.uppercase)
                                 .labelsHidden()
                         }
+                        options
                         #else
                         TextField("Ticker", text: $tickerField)
                             .textCase(tickerField.isEmpty ? .none : .uppercase)
+                        options
                         #endif
                     }
                 } else {
@@ -57,19 +168,23 @@ struct ConfigurationView: View {
                                 .textCase(.uppercase)
                                 .labelsHidden()
                         }
+                        //
+                        options
                         Divider()
-                        LabeledText(label: "Host", value: host)
-                        LabeledText(label: "Email", value: email)
+                        //
+                        LabeledText(label: "Host", value: appData.user?.host ?? "")
+                        LabeledText(label: "Device ID", value: appData.user?.deviceId ?? "")
                         #else
                         TextField("Ticker", text: $tickerField)
                             .textCase(tickerField.isEmpty ? .none : .uppercase)
+                        options
                         #endif
                     }
                     #if os(macOS)
                     #else
                     Section {
-                        LabeledText(label: "Host", value: host)
-                        LabeledText(label: "Email", value: email)
+                        LabeledText(label: "Host", value: appData.user?.host ?? "")
+                        LabeledText(label: "Device ID", value: appData.user?.deviceId ?? "")
                         Button("Cancella tutti i dati utente", role: .destructive, action: cancel)
                     }.lineLimit(1)
                     #endif
@@ -80,7 +195,7 @@ struct ConfigurationView: View {
             #endif
             .toolbar {
                 #if os(macOS)
-                if !email.isEmpty {
+                if appData.user != nil {
                     ToolbarItem(placement: .destructiveAction) {
                         Button("Cancella tutti i dati utente", role: .destructive, action: cancel)
                     }
@@ -103,7 +218,7 @@ struct ConfigurationView: View {
                         #endif
                     } else {
                         Button("Fine", action: done)
-                            .disabled(emailField.isEmpty || tickerField.isEmpty || !hasModifiedContent)
+                            .disabled(tickerField.isEmpty || !hasModifiedContent || invalidAlertInterval)
                     }
                 }
             }
@@ -118,9 +233,19 @@ struct ConfigurationView: View {
         .presentationDetents([.medium])
         .interactiveDismissDisabled(hasModifiedContent)
         .onAppear {
-            hostField = host.isEmpty ? URL.whyFinanceBaseURL.absoluteString : host
-            emailField = email
-            tickerField = ticker
+            hostField = appData.user?.host ?? URL.whyFinanceBaseURL.absoluteString
+            tickerField = appData.user?.ticker ?? ""
+            if case .average(let last) = appData.stock?.aggregate {
+                shouldAverageValues = true
+                stockAverageCount = last
+            } else {
+                shouldAverageValues = false
+                stockAverageCount = 2
+            }
+            shouldAlertHighThreshold = appData.user?.highValue != nil
+            highThreshold = appData.user?.highValue ?? 150.0
+            shouldAlertLowThreshold = appData.user?.lowValue != nil
+            lowThreshold = appData.user?.lowValue ?? 25.0
         }
         .disabled(httpTask != nil)
         .alert("Impossibile connettersi al servizio Why Finance", isPresented: $httpErrorAlert) {
@@ -135,22 +260,26 @@ struct ConfigurationView: View {
     
     private func done() {
         withHTTPTask {
-            try await putTickerSubscription(for: emailField, of: tickerField, at: hostField)
+            let deviceId = await User.generateDeviceId()
+            let user = User(host: hostField, deviceId: deviceId, ticker: tickerField, highValue: shouldAlertHighThreshold ? highThreshold : nil, lowValue: shouldAlertLowThreshold ? lowThreshold : nil)
+            try await appData.updateUser(user)
+            if shouldAverageValues {
+                let stock = user.getStock(aggregate: .average(last: Int(stockAverageCount)))
+                appData.updateStock(stock)
+            } else {
+                let stock = user.getStock()
+                appData.updateStock(stock)
+            }
+            try await appData.refresh()
         } then: {
-            email = emailField
-            ticker = tickerField
-            host = hostField
             dismiss()
         }
     }
     
     private func cancel() {
         withHTTPTask {
-            try await deleteTickerSubscription(for: email, at: host)
+            try await appData.delete()
         } then: {
-            self.ticker = ""
-            self.email = ""
-            self.host = ""
             dismiss()
         }
     }
@@ -170,26 +299,6 @@ struct ConfigurationView: View {
                     }
                 }
             }
-        }
-    }
-    
-    private func putTickerSubscription(for email: String, of ticker: String, at host: String? = nil) async throws {
-        guard let baseURL = URL.whyFinanceBaseURL(host: host) else { throw URLError(.badURL) }
-        var request = URLRequest(url: baseURL.appending(path: "users", directoryHint: .isDirectory).appending(path: email, directoryHint: .notDirectory))
-        request.httpMethod = "PUT"
-        request.httpBody = ticker.uppercased().data(using: .utf8)
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 204 else {
-            throw URLError(.badServerResponse)
-        }
-    }
-    private func deleteTickerSubscription(for email: String, at host: String? = nil) async throws {
-        guard let baseURL = URL.whyFinanceBaseURL(host: host) else { throw URLError(.badURL) }
-        var request = URLRequest(url: baseURL.appending(path: "users", directoryHint: .isDirectory).appending(path: email, directoryHint: .notDirectory))
-        request.httpMethod = "DELETE"
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 204 else {
-            throw URLError(.badServerResponse)
         }
     }
 }

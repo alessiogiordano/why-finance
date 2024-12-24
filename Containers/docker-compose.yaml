@@ -167,6 +167,7 @@ services:
         - KAFKA_GROUP_ID=notification-center
         - KAFKA_TOPICS=notification-center
         - KAFKA_POLLING_INTERVAL=1.0
+        - APNS_ENDPOINT=${APNS_ENDPOINT} #------------------------------------------------
         depends_on:
             users_database_init:
                 condition: service_started

@@ -37,8 +37,7 @@ class StockService(stocks_pb2_grpc.StockServiceServicer):
             logger.info(f"Received GetLastStockValue request for ticker: {request.ticker}")
             result = self.query_handler.get_last_stock_value(request.ticker)
             if result is not None:
-                logger.info(f"Stock value retrieved for {request.ticker}: {result[0]}")
-                response = stocks_pb2.StockResponse(value=result[0])
+                response = stocks_pb2.StockResponse(value=result)
                 if request_id is not None:
                     # Store in cache
                     self.redis_server.set(request_id, response.SerializeToString())
@@ -46,7 +45,7 @@ class StockService(stocks_pb2_grpc.StockServiceServicer):
             else:
                 logger.warning(f"No stock data found for ticker: {request.ticker}")
                 context.set_code(grpc.StatusCode.NOT_FOUND)
-                context.set_details("No stock data found for this user")
+                context.set_details("No stock data found for ticker: {request.ticker}")
                 return stocks_pb2.StockResponse(value=0.0)
         ###
         except Exception as err:
@@ -74,8 +73,8 @@ class StockService(stocks_pb2_grpc.StockServiceServicer):
             logger.info(f"Received CalculateAverageStockValue request for ticker: {request.ticker}, count: {request.count}")
             result = self.query_handler.get_last_stock_value(request.ticker)
             if result is not None:
-                logger.info(f"Calculated average stock value for {request.ticker}: {result[0]}")
-                response = stocks_pb2.StockResponse(value=float(result[0]))
+                logger.info(f"Calculated average stock value for {request.ticker}: {result}")
+                response = stocks_pb2.StockResponse(value=float(result))
                 if request_id is not None:
                     # Store in cache
                     self.redis_server.set(request_id, response.SerializeToString())
@@ -83,7 +82,7 @@ class StockService(stocks_pb2_grpc.StockServiceServicer):
             else:
                 logger.warning(f"No stock data found for ticker: {request.ticker}")
                 context.set_code(grpc.StatusCode.NOT_FOUND)
-                context.set_details("No stock data found for this user")
+                context.set_details("No stock data found for ticker: {request.ticker}")
                 return stocks_pb2.StockResponse(value=0.0)
         ###
         except Exception as err:

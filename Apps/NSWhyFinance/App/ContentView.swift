@@ -5,17 +5,15 @@
 //  Created by Alessio Giordano on 26/11/24.
 //
 
+import UserNotifications
 import SwiftUI
 import TipKit
 
 struct ContentView: View {
     @State var sheet = false
     //
-    @AppStorage("host") var host = ""
-    @AppStorage("email") var email = ""
-    @AppStorage("ticker") var ticker = ""
+    @EnvironmentObject private var appData: AppData
     //
-    @State var id: UUID = .init()
     @State var offset: CGFloat = 0.0
     //
     var body: some View {
@@ -24,27 +22,23 @@ struct ContentView: View {
                 VerticalPositionReader(position: $offset, coordinateSpace: .named("ScrollView"))
             }
             .overlay {
-                WidgetView(ticker: ticker)
+                WidgetView()
                     .systemSmallWidget()
-                    .id(id.uuidString)
                     .offset(y: offset * -1)
                     .environment(\.colorScheme, .light)
                     .allowsHitTesting(false)
                     #if os(macOS)
                     .ignoresSafeArea(.all)
-                    .offset(y: -12) // Title barc
+                    .offset(y: -12) // Title bar
                     #endif
             }
             .coordinateSpace(.named("ScrollView"))
             .scrollContentBackground(.hidden)
             .refreshable {
-                id = .init()
+                try? await appData.refresh()
             }
-            .onChange(of: ticker, initial: true) { oldValue, newValue in
-                if newValue != oldValue {
-                    self.id = .init()
-                }
-                ConfigurationViewTip.isPresented = newValue.isEmpty
+            .onChange(of: appData, initial: true) {
+                ConfigurationViewTip.isPresented = (appData.user == nil)
             }
             .onAppear {
                 try? Tips.resetDatastore()
@@ -75,7 +69,9 @@ struct ContentView: View {
                     }.popoverTip(ConfigurationViewTip())
                     Spacer()
                     Button {
-                        id = .init()
+                        Task {
+                            try? await appData.refresh()
+                        }
                     } label: {
                         Label("Ricarica", systemImage: "arrow.clockwise")
                     }
@@ -83,7 +79,7 @@ struct ContentView: View {
             }
             #endif
             .sheet(isPresented: $sheet) {
-                ConfigurationView(host: $host, email: $email, ticker: $ticker)
+                ConfigurationView()
             }
             .background {
                 LinearGradient(colors: [.whyFinanceLight, .whyFinanceDark],
@@ -103,7 +99,23 @@ struct ContentView: View {
             .toolbarTitleDisplayMode(.inline)
         }
         .environment(\.colorScheme, .dark)
-        .environment(\.whyFinanceBaseURL, .whyFinanceBaseURL(host: host) ?? .whyFinanceBaseURL)
+        .environment(\.whyFinanceBaseURL, .whyFinanceBaseURL(host: appData.user?.host) ?? .whyFinanceBaseURL)
+        .task {
+            let center = UNUserNotificationCenter.current()
+            //let settings = await center.notificationSettings()
+            //if (settings.authorizationStatus == .authorized) ||
+            //      (settings.authorizationStatus == .provisional) { return }
+            do {
+                try await center.requestAuthorization(options: [.alert, .sound, .badge, .provisional])
+            } catch {
+                print("Unexpectedly denied permission to receive notifications")
+            }
+            #if os(macOS)
+            NSApplication.shared.registerForRemoteNotifications()
+            #else
+            UIApplication.shared.registerForRemoteNotifications()
+            #endif
+        }
     }
 }
 
@@ -112,7 +124,7 @@ struct ConfigurationViewTip: Tip {
         Text("Configura il widget")
     }
     var message: Text? {
-        Text("Premi questo pulsante per configurare il widget con un indirizzo email ed il ticker da monitorare")
+        Text("Premi questo pulsante per configurare il widget con il ticker da monitorare e altre opzioni")
     }
     var image: Image? {
         Image(systemName: "info.circle")

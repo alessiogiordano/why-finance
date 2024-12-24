@@ -6,8 +6,8 @@ Progetto di Distributed Systems and Big Data per l'Anno Accademico 2024-25 di Lu
 
 - Per la documentazione, andare su /Docs
 - Per l'applicazione client, andare su /Apps
-- Per eseguire il sistema distribuito, andare su /Containers
-- Per visionare il codice sorgente da valutare come parte della consegna, andare su /Protos e /Containers
+- Per eseguire il sistema distribuito, lanciare /setup.sh
+- Per visionare il codice sorgente da valutare come parte della consegna, andare su /Sources, /Protos e /Containers
 
 ---
 © 2024 Alessio Giordano, Luca Montera

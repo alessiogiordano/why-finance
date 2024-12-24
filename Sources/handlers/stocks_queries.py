@@ -8,6 +8,7 @@
 #
 
 from utils.database import connect
+from utils.logger import logger
 
 class QueryHandler:
     def __init__(self, db_config = None):
@@ -15,7 +16,7 @@ class QueryHandler:
     #-------------------------------------------------------------------------------------
     def get_last_stock_value(self, ticker):
         conn = connect(self.db_config)
-        cursor = self.ticker_conn.cursor()
+        cursor = conn.cursor()
         cursor.execute(
             """
             SELECT value 

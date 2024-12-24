@@ -13,9 +13,11 @@ from utils.subscribe import subscribe
 import httpx
 import uuid
 
-def send_apns_notification(device_token, payload, lang_code='en', sandbox=True):
+def send_apns_notification(device_token, payload, lang_code='en'):
     identifier = str(uuid.uuid4())
-    endpoint = 'https://api.sandbox.push.apple.com:443/3/device/' if sandbox else 'https://api.push.apple.com:443/3/device/'
+    # 'https://api.sandbox.push.apple.com:443/3/device/'
+    # 'https://api.push.apple.com:443/3/device/'
+    endpoint = environ.get('APNS_ENDPOINT', 'https://api.sandbox.push.apple.com:443/3/device/')
     headers = {
         'apns-push-type': 'alert',
         'apns-topic': 'uni.alessiogiordano.NSWhyFinance.App'
@@ -54,7 +56,6 @@ def send_apns_notification(device_token, payload, lang_code='en', sandbox=True):
         response = client.post(endpoint + device_token, headers=headers, json=payload)
         #
         logger.info(f"{identifier} {response.status_code}")
-        logger.info(f"{identifier} {response.json()}")
 #-----------------------------------------------------------------------------------------
 
 def send_notification(message):
