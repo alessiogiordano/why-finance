@@ -8,6 +8,18 @@
 #
 
 services:
+    monitor:
+        container_name: monitor
+        image: prom/prometheus
+        user: root # err="open /etc/prometheus/prometheus.yml: permission denied"
+        ports:
+        - "9090:9090"
+        volumes:
+        - monitor_prometheus_data:/prometheus
+        - ./Monitor/prometheus.yml:/etc/prometheus/prometheus.yml
+        networks:
+        - whyfinance-network
+#---####################################
     proxy:
         container_name: proxy
         build:
@@ -15,10 +27,14 @@ services:
             dockerfile: Containers/Proxy/Dockerfile
         ports:
         - "${PROXY_PORT}:${PROXY_PORT}" # host:container
+        - "9080:9080"
         environment:
         - PROXY_PORT=${PROXY_PORT} #------------------------------------------------------
         - STOCKS_PORT=${STOCKS_PORT}
         - USERS_PORT=${USERS_PORT}
+        - MONITOR_SERVICE_NAME=proxy #----------------------------------------------------
+        - MONITOR_SERVICE_NODE=proxy_1
+        - MONITOR_SERVICE_PORT=9080
         networks:
         - whyfinance-network
         depends_on:
@@ -94,6 +110,8 @@ services:
         build:
             context: ../
             dockerfile: Containers/Crawler/Dockerfile
+        ports:
+        - "9081:9081"
         environment:
         - USERS_DB_HOST=${USERS_DB_HOST} #------------------------------------------------
         - USERS_DB_PORT=${USERS_DB_PORT}
@@ -115,6 +133,9 @@ services:
         - KAFKA_GROUP_ID=crawler
         - KAFKA_TOPICS=crawler
         - KAFKA_POLLING_INTERVAL=1.0
+        - MONITOR_SERVICE_NAME=crawler #--------------------------------------------------
+        - MONITOR_SERVICE_NODE=crawler_1
+        - MONITOR_SERVICE_PORT=9081
         depends_on:
             users_database_init:
                 condition: service_started
@@ -331,5 +352,6 @@ networks:
         driver: bridge
 ########################################
 volumes:
+    monitor_prometheus_data:
     users_mysql_data:
     stocks_mysql_data:

@@ -3,3 +3,4 @@ mysql-connector-python
 grpcio
 protobuf
 confluent-kafka
+prometheus-client

@@ -18,6 +18,7 @@ from utils.breaker import context as circuit_breaker
 from utils.logger import logger
 from utils.broadcast import broadcast
 from utils.subscribe import subscribe
+from utils.monitor import monitor
 
 from handlers.users import queries as QueryHandler
 from handlers.stocks import commands as CommandHandler
@@ -61,11 +62,18 @@ def crawl_tickers():
 def crawl_tickers_at_interval():
     # these global variables should be initialized in __main__
     global interval, count, timestamp
-    if (int(time.time()) - timestamp) >= interval:
+    start_time = time.time()
+    if (int(start_time) - timestamp) >= interval:
         logger.info("WILL BEGIN CYCLE #{}".format(count))
         crawl_tickers()
+        finishing_time = time.time()
         logger.info("DID COMPLETE CYCLE #{}".format(count))
-        timestamp = int(time.time())
+        #
+        global count_monitor, duration_monitor
+        count_monitor.inc()
+        duration_monitor.set(finishing_time - start_time)
+        #
+        timestamp = int(finishing_time)
         count += 1
 #-----------------------------------------------------------------------------------------
 
@@ -74,6 +82,10 @@ if __name__ == "__main__":
     interval = int(environ.get('CRAWLER_TIME_INTERVAL', '3600')) # Defaults to 1 hour
     count = 0
     timestamp = int(time.time()) - interval # Crawl immediately
+    #
+    global count_monitor, duration_monitor
+    count_monitor = monitor.counter("crawler_cycle_count", "The number of completed crawling cycles")
+    duration_monitor = monitor.gauge("crawler_cycle_duration", "The duration in seconds of a crawling cycle")
     #
     subscribe(before=crawl_tickers_at_interval, callback=crawl_ticker, log=True)
 #-----------------------------------------------------------------------------------------

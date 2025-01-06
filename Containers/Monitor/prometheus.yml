@@ -1,0 +1,27 @@
+#
+#  prometheus.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 02/01/25.
+#
+
+global:
+    scrape_interval: 15s
+    #external_labels:
+    #    monitor: 'monitor'
+########################################
+scrape_configs:
+    - job_name: "monitor"
+      static_configs:
+      - targets: ["monitor:9090"]
+#---####################################
+    - job_name: "proxy"
+      static_configs:
+      - targets: ["proxy:9080"]
+#---####################################
+    - job_name: "crawler"
+      static_configs:
+      - targets: ["crawler:9081"]
+########################################

@@ -23,20 +23,7 @@ from circuit_breaker_pb2_grpc import add_CircuitBreakerServicer_to_server
 import concurrent.futures
 import requests
 
-#
-# Logging
-#
-import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("server.log")
-    ]
-)
-logger = logging.getLogger(__name__)
-#-----------------------------------------------------------------------------------------
+from utils.logger import logger
 
 #
 # Circuit Breaker
