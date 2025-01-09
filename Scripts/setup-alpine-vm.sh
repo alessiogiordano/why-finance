@@ -13,6 +13,7 @@ vi /etc/apk/repositories # Decomment community repo
 apk update
 apk upgrade
 apk add docker docker-cli-compose
+apk add kind kubectl --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 rc-update add docker boot
 apk add open-vm-tools open-vm-tools-guestinfo open-vm-tools-deploypkg open-vm-tools-plugins-all
 rc-update add open-vm-tools boot

@@ -1,0 +1,1033 @@
+#
+#  kind-config.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 09/01/25.
+#
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: why-finance
+nodes:
+- role: control-plane
+- role: worker
+  labels:
+      custom-label: "worker"
+  extraPortMappings:
+  - containerPort: 30092
+    hostPort: 9092
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+########################################
+---
+########################################
+#--------------- Users -----------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: users_database
+    labels:
+        app: users_database
+    namespace: why-finance
+spec:
+    ports:
+    - port:3306
+    selector:
+        app: users_database
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: users_database
+    labels:
+        app: users_database
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: users_database
+    template:
+        metadata:
+            labels:
+                app: users_database
+        spec:
+            volumes:
+            - name: users_mysql_data
+              emptyDir: {}
+            containers:
+            - name: users_database
+              image: mysql:8.0
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 3306
+              volumeMounts:
+              - name: users_mysql_data
+                mountPath: /var/lib/mysql
+              env:
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: MYSQL_DATABASE
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              startupProbe:
+                  exec:
+                      command:
+                      - /bin/sh
+                      - -c
+                      - mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD
+                  failureThreshold: 20
+                  periodSeconds: 10
+########################################
+---
+########################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: users_redis
+    labels:
+        app: users_redis
+    namespace: why-finance
+spec:
+    ports:
+    - port:6379
+    selector:
+        app: users_redis
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: users_redis
+    labels:
+        app: users_redis
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: users_redis
+    template:
+        metadata:
+            labels:
+                app: users_redis
+        spec:
+            containers:
+            - name: users_redis
+              image: redis:alpine
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 6379
+########################################
+---
+########################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: users
+    labels:
+        app: users
+    namespace: why-finance
+spec:
+    ports:
+    - port:50051
+    selector:
+        app: users
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: users
+    labels:
+        app: users
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: users
+    template:
+        metadata:
+            labels:
+                app: users
+        spec:
+            initContainers:
+            - name: users_database_init
+              image: users_database_init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+            - name: broker_init
+              image: broker_init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_TOPICS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_TOPICS
+            containers:
+            - name: users
+              image: users:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 50051
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: REDIS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: REDIS_PORT
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: 1
+              - name: KAFKA_IN_FLIGHT_REQUESTS
+                value: 1
+              - name: KAFKA_LINGER
+                value: 0
+              - name: KAFKA_RETRIES
+                value: 3
+########################################
+---
+########################################
+#--------------- Stocks ----------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: stocks_database
+    labels:
+        app: stocks_database
+    namespace: why-finance
+spec:
+    ports:
+    - port:3306
+    selector:
+        app: stocks_database
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: stocks_database
+    labels:
+        app: stocks_database
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: stocks_database
+    template:
+        metadata:
+            labels:
+                app: stocks_database
+        spec:
+            volumes:
+            - name: stocks_mysql_data
+              emptyDir: {}
+            containers:
+            - name: stocks_database
+              image: mysql:8.0
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 3306
+              volumeMounts:
+              - name: stocks_mysql_data
+                mountPath: /var/lib/mysql
+              env:
+              - name: MYSQL_ROOT_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: MYSQL_DATABASE
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+              startupProbe:
+                  exec:
+                      command:
+                      - /bin/sh
+                      - -c
+                      - mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD
+                  failureThreshold: 20
+                  periodSeconds: 10
+########################################
+---
+########################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: stocks_redis
+    labels:
+        app: stocks_redis
+    namespace: why-finance
+spec:
+    ports:
+    - port:6379
+    selector:
+        app: stocks_redis
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: stocks_redis
+    labels:
+        app: stocks_redis
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: stocks_redis
+    template:
+        metadata:
+            labels:
+                app: stocks_redis
+        spec:
+            containers:
+            - name: stocks_redis
+              image: redis:alpine
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 6379
+########################################
+---
+########################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: stocks
+    labels:
+        app: stocks
+    namespace: why-finance
+spec:
+    ports:
+    - port: 50051
+    selector:
+        app: stocks
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: stocks
+    labels:
+        app: stocks
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: stocks
+    template:
+        metadata:
+            labels:
+                app: stocks
+        spec:
+            initContainers:
+            - name: stocks_database_init
+              image: stocks_database_init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+            containers:
+            - name: stocks
+              image: stocks:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 50052
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+              - name: STOCKS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_PORT
+              - name: REDIS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: REDIS_PORT
+########################################
+---
+########################################
+#--------------- Broker ----------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: broker
+    labels:
+        app: broker
+    namespace: why-finance
+spec:
+    ports:
+    - port:9092
+    - port:9093
+    selector:
+        app: broker
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: broker
+    labels:
+        app: broker
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: broker
+    template:
+        metadata:
+            labels:
+                app: broker
+        spec:
+            containers:
+            - name: broker
+              image: apache/kafka:3.7.2
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 9092
+              - containerPort: 9093
+              env:
+              - name: KAFKA_NODE_ID
+                value: 1
+              - name: KAFKA_PROCESS_ROLES
+                value: broker,controller
+              - name: KAFKA_LISTENERS
+                value: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+              - name: KAFKA_ADVERTISED_LISTENERS
+                value: PLAINTEXT://broker:9092
+              - name: KAFKA_CONTROLLER_LISTENER_NAMES
+                value: CONTROLLER
+              - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+                value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+              - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+                value: 1@broker:9093
+              - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+                value: 1
+              - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+                value: 1
+              - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+                value: 1
+              - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+                value: 0
+              - name: KAFKA_NUM_PARTITIONS
+                value: 1
+---
+########################################
+#----------- Circuit Breaker -----------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: circuit_breaker_redis
+    labels:
+        app: circuit_breaker_redis
+    namespace: why-finance
+spec:
+    ports:
+    - port:6379
+    selector:
+        app: circuit_breaker_redis
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: circuit_breaker_redis
+    labels:
+        app: circuit_breaker_redis
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: circuit_breaker_redis
+    template:
+        metadata:
+            labels:
+                app: circuit_breaker_redis
+        spec:
+            containers:
+            - name: circuit_breaker_redis
+              image: redis:alpine
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 6379
+########################################
+---
+########################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: circuit_breaker
+    labels:
+        app: circuit_breaker
+    namespace: why-finance
+spec:
+    ports:
+    - port: 30112
+    selector:
+        app: circuit_breaker
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: circuit_breaker
+    labels:
+        app: circuit_breaker
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: circuit_breaker
+    template:
+        metadata:
+            labels:
+                app: circuit_breaker
+        spec:
+            initContainers:
+            - name: circuit_breaker_init
+              image: redis:alpine
+              command: ['sh', '-c', 'until nc -z redis 6379; do echo "Waiting for Redis"; sleep 1; done;']
+            containers:
+            - name: circuit_breaker
+              image: circuit_breaker:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 30112
+              env:
+              - name: REDIS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: REDIS_PORT
+              - name: CIRCUIT_BREAKER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CIRCUIT_BREAKER_PORT
+########################################
+---
+########################################
+#--------------- Crawler ---------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: crawler
+    labels:
+        app: crawler
+    namespace: why-finance
+spec:
+    ports:
+    - port: 9081
+    selector:
+        app: crawler
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: crawler
+    labels:
+        app: crawler
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: crawler
+    template:
+        metadata:
+            labels:
+                app: crawler
+        spec:
+            # TODO: Ping Users
+            #initContainers:
+            #- name: init-vote
+            #  image: redis:alpine
+            #  command: ['sh', '-c', 'until nc -z redis 6379; do echo "Waiting for Redis"; sleep 1; done;']
+            containers:
+            - name: crawler
+              image: crawler:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 9081
+              env:
+              - name: USERS_DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: USERS_DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: USERS_DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: USERS_DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: USERS_DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: STOCKS_DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: STOCKS_DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: STOCKS_DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: STOCKS_DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: STOCKS_DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+              - name: CIRCUIT_BREAKER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CIRCUIT_BREAKER_PORT
+              - name: CRAWLER_TIME_INTERVAL
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CRAWLER_TIME_INTERVAL
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: all
+              - name: KAFKA_IN_FLIGHT_REQUESTS
+                value: 1
+              - name: KAFKA_LINGER
+                value: 0
+              - name: KAFKA_RETRIES
+                value: 3
+              - name: KAFKA_GROUP_ID
+                value: crawler
+              - name: KAFKA_TOPICS
+                value: crawler
+              - name: KAFKA_POLLING_INTERVAL
+                value: 1.0
+              - name: MONITOR_SERVICE_NAME
+                value: crawler
+              - name: MONITOR_SERVICE_NODE
+                value: crawler_1
+              - name: MONITOR_SERVICE_PORT
+                value: 9081
+---
+########################################
+#---------------- Alert ----------------
+##########################################################################################
+# TODO: Remove
+kind: Service
+apiVersion: v1
+metadata:
+    name: alert
+    labels:
+        app: alert
+    namespace: why-finance
+spec:
+    selector:
+        app: alert
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: alert
+    labels:
+        app: alert
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: alert
+    template:
+        metadata:
+            labels:
+                app: alert
+        spec:
+            containers:
+            - name: alert
+              image: alert:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: all
+              - name: KAFKA_LINGER
+                value: 0
+              - name: KAFKA_BATCH_SIZE
+                value: 128000
+              - name: KAFKA_RETRIES
+                value: 3
+              - name: KAFKA_GROUP_ID
+                value: alert
+              - name: KAFKA_TOPICS
+                value: alert
+              - name: KAFKA_POLLING_INTERVAL
+                value: 1.0
+########################################
+---
+########################################
+#--------- Notification Center ---------
+##########################################################################################
+# TODO: Remove
+kind: Service
+apiVersion: v1
+metadata:
+    name: notification_center
+    labels:
+        app: notification_center
+    namespace: why-finance
+spec:
+    selector:
+        app: notification_center
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: notification_center
+    labels:
+        app: notification_center
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: notification_center
+    template:
+        metadata:
+            labels:
+                app: notification_center
+        spec:
+            containers:
+            - name: notification_center
+              image: notification_center:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: CIRCUIT_BREAKER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CIRCUIT_BREAKER_PORT
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_GROUP_ID
+                value: notification_center
+              - name: KAFKA_TOPICS
+                value: notification_center
+              - name: KAFKA_POLLING_INTERVAL
+                value: 1.0
+              - name: APNS_ENDPOINT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: APNS_ENDPOINT
+########################################
+---
+########################################
+#--------------- Monitor ---------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: monitor
+    labels:
+        app: monitor
+    namespace: why-finance
+spec:
+    ports:
+    - port: 9090
+    selector:
+        app: monitor
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: monitor
+    labels:
+        app: monitor
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: monitor
+    template:
+        metadata:
+            labels:
+                app: monitor
+        spec:
+            volumes:
+            - name: monitor_prometheus_data
+              emptyDir: {}
+            - name: monitor_prometheus_configuration
+              hostPath:
+                  path: ./Monitor/prometheus.yml
+                  type: File
+            containers:
+            - name: monitor
+              image: prom/prometheus
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 9090
+              volumeMounts:
+              - name: monitor_prometheus_data
+                mountPath: /prometheus
+              - name: monitor_prometheus_configuration
+                mountPath: /etc/prometheus/prometheus.yml
+---
+########################################
+#---------------- Proxy ----------------
+##########################################################################################
+kind: Service
+apiVersion: v1
+metadata:
+    name: proxy
+    labels:
+        app: proxy
+    namespace: why-finance
+spec:
+    ports:
+    - port: 80
+    - port: 9080
+    selector:
+        app: proxy
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: proxy
+    labels:
+        app: proxy
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: proxy
+    template:
+        metadata:
+            labels:
+                app: proxy
+        spec:
+            containers:
+            - name: proxy
+              image: proxy:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 80
+              - containerPort: 9080
+              env:
+              - name: PROXY_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: PROXY_PORT
+              - name: STOCKS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_PORT
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: MONITOR_SERVICE_NAME
+                value: proxy
+              - name: MONITOR_SERVICE_NODE
+                value: proxy_1
+              - name: MONITOR_SERVICE_PORT
+                value: 9080
+---

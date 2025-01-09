@@ -9,7 +9,7 @@
 
 FROM alpine:latest
 
-WORKDIR /why-finance/notification-center
+WORKDIR /why-finance/notification_center
 
 COPY Protos/.build .
 COPY Sources .

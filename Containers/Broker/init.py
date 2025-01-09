@@ -35,7 +35,7 @@ for element in environ.get('KAFKA_BROKERS', 'localhost:9092').split(","):
 # The number of bootstrap_servers is also used for num_partitions and replication_factor
 
 # Format: 'topic1,topic2,topic3'
-topics = environ.get('KAFKA_TOPICS', 'crawler,alert,notification-center').split(",")
+topics = environ.get('KAFKA_TOPICS', 'crawler,alert,notification_center').split(",")
 
 if __name__ == "__main__":
     administrator = KafkaAdminClient(bootstrap_servers=bootstrap_servers, client_id='create_topics')

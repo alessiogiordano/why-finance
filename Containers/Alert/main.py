@@ -33,7 +33,7 @@ def dispatch_notification_for_user(user, ticker, price, timestamp):
             if price < user['low_value']:
                 past_low_threshold = True
         #
-        broadcast('notification-center', {
+        broadcast('notification_center', {
             'receiver': {
                 'apns': user['device_token']
             },

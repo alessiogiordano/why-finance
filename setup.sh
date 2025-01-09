@@ -26,6 +26,8 @@ if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
     printf "%s\t\t\t%s\n" "--reset " " Deletes built local images and volumes before running"
     printf "%s\t\t\t%s\n" "--hard-reset " " Deletes all built images and volumes before running"
     printf "%s\t\t\t%s\n" "--no-run " " Does not start the Docker Compose file"
+#    printf "%s\t\t\t%s\n" "--docker " " Run Docker Compose through the Docker Engine"
+#    printf "%s\t\t\t%s\n" "--kind " " Run as Kubernetes Cluster through Kind"
     printf "%s\t\t\t%s\n" "-h, --help " " Prints this message"
     exit 0;
 fi

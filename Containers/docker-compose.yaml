@@ -177,16 +177,16 @@ services:
         - whyfinance-network
         restart: on-failure
 #---####################################
-    notification-center:
-        container_name: notification-center
+    notification_center:
+        container_name: notification_center
         build:
             context: ../
             dockerfile: Containers/NotificationCenter/Dockerfile
         environment:
         - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT} #----------------------------------
         - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
-        - KAFKA_GROUP_ID=notification-center
-        - KAFKA_TOPICS=notification-center
+        - KAFKA_GROUP_ID=notification_center
+        - KAFKA_TOPICS=notification_center
         - KAFKA_POLLING_INTERVAL=1.0
         - APNS_ENDPOINT=${APNS_ENDPOINT} #------------------------------------------------
         depends_on:
