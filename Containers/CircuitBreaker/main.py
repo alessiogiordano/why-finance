@@ -153,11 +153,11 @@ class CircuitBreaker(CircuitBreakerServicer):
         # Request can occur
         try:
             # Return cached message (at-most-once)
-            circuit_breaker_response = CircuitBreakerHTTPResponse()
+            circuit-breaker_response = CircuitBreakerHTTPResponse()
             serialized_response = redis_server.get(cache_prefix + request.id)
-            circuit_breaker_response.ParseFromString(serialized_response)
+            circuit-breaker_response.ParseFromString(serialized_response)
             logger.info("Cached Request " + request.id)
-            return circuit_breaker_response
+            return circuit-breaker_response
         except:
             # Send HTTP request
             logger.info("Request " + request.id)
@@ -169,11 +169,11 @@ class CircuitBreaker(CircuitBreakerServicer):
                 else:
                     reset_circuit_state_for_hostname(host)
             # Make response object
-            circuit_breaker_response = CircuitBreakerHTTPResponse(id=request.id, status=status, wait=0, http=http_response)
+            circuit-breaker_response = CircuitBreakerHTTPResponse(id=request.id, status=status, wait=0, http=http_response)
             # Cache response
-            redis_server.set(cache_prefix + request.id, circuit_breaker_response.SerializeToString())
+            redis_server.set(cache_prefix + request.id, circuit-breaker_response.SerializeToString())
             # Done
-            return circuit_breaker_response
+            return circuit-breaker_response
 #-----------------------------------------------------------------------------------------
 
 #
@@ -181,15 +181,15 @@ class CircuitBreaker(CircuitBreakerServicer):
 #
 if __name__ == '__main__':
     redis_port = int(environ['REDIS_PORT'])
-    circuit_breaker_port = str(int(environ['CIRCUIT_BREAKER_PORT']))
+    circuit-breaker_port = str(int(environ['CIRCUIT_BREAKER_PORT']))
     #
     global redis_server
-    redis_server = redis.Redis(host='circuit_breaker_redis', port=redis_port, decode_responses=True)
+    redis_server = redis.Redis(host='circuit-breaker-redis', port=redis_port, decode_responses=True)
     logger.info(redis_server.ping())
     #
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=4))
     add_CircuitBreakerServicer_to_server(CircuitBreaker(), server)
-    server.add_insecure_port('[::]:' + circuit_breaker_port)
+    server.add_insecure_port('[::]:' + circuit-breaker_port)
     server.start()
     logger.info("Circuit Breaker microservice is ready")
     server.wait_for_termination()

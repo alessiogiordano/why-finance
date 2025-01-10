@@ -1,0 +1,67 @@
+#
+#  manifest.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: monitor
+    labels:
+        app: monitor
+    namespace: why-finance
+spec:
+    type: NodePort
+    ports:
+    - name: prometheus
+      port: 9090
+      nodePort: 30090 # 30000-32767
+    selector:
+        app: monitor
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: monitor
+    labels:
+        app: monitor
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: monitor
+    template:
+        metadata:
+            labels:
+                app: monitor
+        spec:
+            volumes:
+            - name: monitor-prometheus-data
+              emptyDir: {}
+            - name: monitor_prometheus_configuration
+              hostPath:
+                  path: ./prometheus.yml
+                  type: File
+            containers:
+            - name: monitor
+              image: prom/prometheus
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 9090
+              volumeMounts:
+              - name: monitor-prometheus-data
+                mountPath: /prometheus
+              - name: monitor_prometheus_configuration
+                mountPath: /etc/prometheus/prometheus.yml

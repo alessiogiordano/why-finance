@@ -14,7 +14,7 @@ import mysql.connector
 from datetime import datetime
 import time
 
-from utils.breaker import context as circuit_breaker
+from utils.breaker import context as circuit-breaker
 from utils.logger import logger
 from utils.broadcast import broadcast
 from utils.subscribe import subscribe
@@ -27,7 +27,7 @@ query_handler = QueryHandler('users')
 command_handler = CommandHandler('stocks')
 
 def fetch_stock_price(ticker):
-    with circuit_breaker("finance.yahoo.com"):
+    with circuit-breaker("finance.yahoo.com"):
         stock = yf.Ticker(ticker)
         history = stock.history(period="1d")
         if history.empty:

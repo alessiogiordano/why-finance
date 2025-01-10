@@ -17,7 +17,7 @@ def get_db_config_by_string(db_type):
     """
     if db_type == 'users':
         return {
-            "host": os.environ.get('USERS_DB_HOST', 'users_database'),
+            "host": os.environ.get('USERS_DB_HOST', 'users-database'),
             "port": int(os.environ.get('USERS_DB_PORT', '3306')),
             "user": os.environ.get('USERS_DB_USER', 'root'),
             "password": os.environ.get('USERS_DB_PASSWORD', 'root'),
@@ -25,7 +25,7 @@ def get_db_config_by_string(db_type):
         }
     elif db_type == 'stocks':
         return {
-            "host": os.environ.get('STOCKS_DB_HOST', 'stocks_database'),
+            "host": os.environ.get('STOCKS_DB_HOST', 'stocks-database'),
             "port": int(os.environ.get('STOCKS_DB_PORT', '3306')),
             "user": os.environ.get('STOCKS_DB_USER', 'root'),
             "password": os.environ.get('STOCKS_DB_PASSWORD', 'root'),

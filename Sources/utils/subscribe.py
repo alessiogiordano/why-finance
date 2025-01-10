@@ -27,7 +27,7 @@ for element in environ.get('KAFKA_BROKERS', 'localhost:9092').split(","):
 # The number of bootstrap_servers is also used for num_partitions and replication_factor
 
 # Format: 'topic1,topic2,topic3'
-topics = environ.get('KAFKA_TOPICS', 'crawler,alert,notification_center').split(",")
+topics = environ.get('KAFKA_TOPICS', 'crawler,alert,notification-center').split(",")
 
 def no_op(*kargs, **kwargs):
     pass
@@ -45,7 +45,7 @@ def subscribe(*kargs, **kwargs):
     polling_interval = float(environ.get('KAFKA_POLLING_INTERVAL', '1.0')) # Blocks up to 1s
     group_id = kwargs['group_id'] if ('group_id' in kwargs) else environ.get('KAFKA_GROUP_ID', 'test-consumer-group')
     consumer = Consumer({ 'bootstrap.servers': ','.join(bootstrap_servers), 'group.id': group_id })
-    logger.info(f"TOPICS: '{environ.get('KAFKA_TOPICS', 'crawler,alert,notification_center')}'")
+    logger.info(f"TOPICS: '{environ.get('KAFKA_TOPICS', 'crawler,alert,notification-center')}'")
     consumer.subscribe(topics if len(kargs) == 0 else kargs)
     while True:
         try:

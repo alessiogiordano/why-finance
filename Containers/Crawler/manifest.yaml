@@ -1,0 +1,144 @@
+#
+#  manifest.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: crawler
+    labels:
+        app: crawler
+    namespace: why-finance
+spec:
+    ports:
+    - name: metrics
+      port: 9081
+    selector:
+        app: crawler
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: crawler
+    labels:
+        app: crawler
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: crawler
+    template:
+        metadata:
+            labels:
+                app: crawler
+        spec:
+            # TODO: Ping Users
+            #initContainers:
+            #- name: init-vote
+            #  image: redis:alpine
+            #  command: ['sh', '-c', 'until nc -z redis 6379; do echo "Waiting for Redis"; sleep 1; done;']
+            containers:
+            - name: crawler
+              image: crawler:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 9081
+              env:
+              - name: USERS_DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: USERS_DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: USERS_DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: USERS_DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: USERS_DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: STOCKS_DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: STOCKS_DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: STOCKS_DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: STOCKS_DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: STOCKS_DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+              - name: CIRCUIT_BREAKER_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CIRCUIT_BREAKER_PORT
+              - name: CRAWLER_TIME_INTERVAL
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: CRAWLER_TIME_INTERVAL
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: "all"
+              - name: KAFKA_IN_FLIGHT_REQUESTS
+                value: "1"
+              - name: KAFKA_LINGER
+                value: "0"
+              - name: KAFKA_RETRIES
+                value: "3"
+              - name: KAFKA_GROUP_ID
+                value: "crawler"
+              - name: KAFKA_TOPICS
+                value: "crawler"
+              - name: KAFKA_POLLING_INTERVAL
+                value: "1.0"
+              - name: MONITOR_SERVICE_NAME
+                value: "crawler"
+              - name: MONITOR_SERVICE_NODE
+                value: "crawler_1"
+              - name: MONITOR_SERVICE_PORT
+                value: "9081"

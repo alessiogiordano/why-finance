@@ -15,7 +15,7 @@ services:
         ports:
         - "9090:9090"
         volumes:
-        - monitor_prometheus_data:/prometheus
+        - monitor-prometheus-data:/prometheus
         - ./Monitor/prometheus.yml:/etc/prometheus/prometheus.yml
         networks:
         - whyfinance-network
@@ -66,8 +66,8 @@ services:
         - KAFKA_NUM_PARTITIONS=1
         restart: always
 #---------------------------------------
-    broker_init:
-        container_name: broker_init
+    broker-init:
+        container_name: broker-init
         build:
             context: ../
             dockerfile: Containers/Broker/Dockerfile
@@ -80,8 +80,8 @@ services:
         - broker
         restart: on-failure
 #---####################################
-    circuit_breaker_redis:
-        container_name: circuit_breaker_redis
+    circuit-breaker-redis:
+        container_name: circuit-breaker-redis
         image: redis:alpine
         ports:
         - 30111:6379 # host:container
@@ -89,8 +89,8 @@ services:
         - whyfinance-network
         restart: always
 #---------------------------------------
-    circuit_breaker:
-        container_name: circuit_breaker
+    circuit-breaker:
+        container_name: circuit-breaker
         build:
             context: ../
             dockerfile: Containers/CircuitBreaker/Dockerfile
@@ -100,7 +100,7 @@ services:
         ports:
         - "${CIRCUIT_BREAKER_PORT}:${CIRCUIT_BREAKER_PORT}"
         depends_on:
-        - circuit_breaker_redis
+        - circuit-breaker-redis
         networks:
         - whyfinance-network
         restart: always
@@ -137,11 +137,11 @@ services:
         - MONITOR_SERVICE_NODE=crawler_1
         - MONITOR_SERVICE_PORT=9081
         depends_on:
-            users_database_init:
+            users-database-init:
                 condition: service_started
-            stocks_database_init:
+            stocks-database-init:
                 condition: service_started
-            broker_init:
+            broker-init:
                 condition: service_started
         networks:
         - whyfinance-network
@@ -167,41 +167,41 @@ services:
         - KAFKA_TOPICS=alert
         - KAFKA_POLLING_INTERVAL=1.0
         depends_on:
-            users_database_init:
+            users-database-init:
                 condition: service_started
-            stocks_database_init:
+            stocks-database-init:
                 condition: service_started
-            broker_init:
+            broker-init:
                 condition: service_started
         networks:
         - whyfinance-network
         restart: on-failure
 #---####################################
-    notification_center:
-        container_name: notification_center
+    notification-center:
+        container_name: notification-center
         build:
             context: ../
             dockerfile: Containers/NotificationCenter/Dockerfile
         environment:
         - CIRCUIT_BREAKER_PORT=${CIRCUIT_BREAKER_PORT} #----------------------------------
         - KAFKA_BROKERS=${KAFKA_BROKERS} #------------------------------------------------
-        - KAFKA_GROUP_ID=notification_center
-        - KAFKA_TOPICS=notification_center
+        - KAFKA_GROUP_ID=notification-center
+        - KAFKA_TOPICS=notification-center
         - KAFKA_POLLING_INTERVAL=1.0
         - APNS_ENDPOINT=${APNS_ENDPOINT} #------------------------------------------------
         depends_on:
-            users_database_init:
+            users-database-init:
                 condition: service_started
-            stocks_database_init:
+            stocks-database-init:
                 condition: service_started
-            broker_init:
+            broker-init:
                 condition: service_started
         networks:
         - whyfinance-network
         restart: on-failure
 #---####################################
-    users_database:
-        container_name: users_database
+    users-database:
+        container_name: users-database
         image: mysql:8.0
         environment:
             MYSQL_ROOT_PASSWORD: ${USERS_DB_PASSWORD} #-----------------------------------
@@ -209,7 +209,7 @@ services:
         ports:
         - "3306:3306"
         volumes:
-        - users_mysql_data:/var/lib/mysql
+        - users-mysql-data:/var/lib/mysql
         networks:
         - whyfinance-network
         healthcheck:
@@ -220,8 +220,8 @@ services:
             start_period: 60s
         restart: always
 #---------------------------------------
-    users_database_init:
-        container_name: users_database_init
+    users-database-init:
+        container_name: users-database-init
         build:
             context: ../
             dockerfile: Containers/UserDatabase/Dockerfile
@@ -234,11 +234,11 @@ services:
         networks:
         - whyfinance-network
         depends_on:
-            users_database:
+            users-database:
                 condition: service_healthy
 #---------------------------------------
-    users_redis:
-        container_name: users_redis
+    users-redis:
+        container_name: users-redis
         image: redis:alpine
         ports:
         - 30113:6379 # host:container
@@ -267,18 +267,18 @@ services:
         - KAFKA_LINGER=0 # Latency is more important than throughput
         - KAFKA_RETRIES=3
         depends_on:
-            users_redis:
+            users-redis:
                 condition: service_started
-            users_database_init:
+            users-database-init:
                 condition: service_started
-            broker_init:
+            broker-init:
                 condition: service_started
         networks:
         - whyfinance-network
         restart: always
 #---####################################
-    stocks_database:
-        container_name: stocks_database
+    stocks-database:
+        container_name: stocks-database
         image: mysql:8.0
         environment:
             MYSQL_ROOT_PASSWORD: ${STOCKS_DB_PASSWORD} #----------------------------------
@@ -286,7 +286,7 @@ services:
         ports:
         - "3307:3306"
         volumes:
-        - stocks_mysql_data:/var/lib/mysql
+        - stocks-mysql-data:/var/lib/mysql
         networks:
         - whyfinance-network
         healthcheck:
@@ -297,8 +297,8 @@ services:
             start_period: 60s
         restart: always
 #---------------------------------------
-    stocks_database_init:
-        container_name: stocks_database_init
+    stocks-database-init:
+        container_name: stocks-database-init
         build:
             context: ../
             dockerfile: Containers/StockDatabase/Dockerfile
@@ -311,11 +311,11 @@ services:
         networks:
         - whyfinance-network
         depends_on:
-            stocks_database:
+            stocks-database:
                 condition: service_healthy
 #---------------------------------------
-    stocks_redis:
-        container_name: stocks_redis
+    stocks-redis:
+        container_name: stocks-redis
         image: redis:alpine
         ports:
         - 30114:6379 # host:container
@@ -339,9 +339,9 @@ services:
         - STOCKS_PORT=${STOCKS_PORT} #----------------------------------------------------
         - REDIS_PORT=${REDIS_PORT}
         depends_on:
-            stocks_redis:
+            stocks-redis:
                 condition: service_started
-            stocks_database_init:
+            stocks-database-init:
                 condition: service_started
         networks:
         - whyfinance-network
@@ -352,6 +352,6 @@ networks:
         driver: bridge
 ########################################
 volumes:
-    monitor_prometheus_data:
-    users_mysql_data:
-    stocks_mysql_data:
+    monitor-prometheus-data:
+    users-mysql-data:
+    stocks-mysql-data:

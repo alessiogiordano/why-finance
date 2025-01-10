@@ -1,0 +1,80 @@
+#
+#  manifest.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: proxy
+    labels:
+        app: proxy
+    namespace: why-finance
+spec:
+    type: NodePort
+    ports:
+    - name: flask
+      port: 80
+      nodePort: 30080 # 30000-32767
+    - name: metrics
+      port: 9080
+    selector:
+        app: proxy
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: proxy
+    labels:
+        app: proxy
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: proxy
+    template:
+        metadata:
+            labels:
+                app: proxy
+        spec:
+            containers:
+            - name: proxy
+              image: proxy:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 80
+              - containerPort: 9080
+              env:
+              - name: PROXY_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: PROXY_PORT
+              - name: STOCKS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_PORT
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: MONITOR_SERVICE_NAME
+                value: "proxy"
+              - name: MONITOR_SERVICE_NODE
+                value: "proxy_1"
+              - name: MONITOR_SERVICE_PORT
+                value: "9080"

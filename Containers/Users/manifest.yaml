@@ -1,0 +1,184 @@
+#
+#  manifest.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: users-redis
+    labels:
+        app: users-redis
+    namespace: why-finance
+spec:
+    ports:
+    - name: redis
+      port: 6379
+    selector:
+        app: users-redis
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: users-redis
+    labels:
+        app: users-redis
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: users-redis
+    template:
+        metadata:
+            labels:
+                app: users-redis
+        spec:
+            containers:
+            - name: users-redis
+              image: redis:alpine
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 6379
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: users
+    labels:
+        app: users
+    namespace: why-finance
+spec:
+    ports:
+    - name: grpc
+      port: 50051
+    selector:
+        app: users
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: users
+    labels:
+        app: users
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: users
+    template:
+        metadata:
+            labels:
+                app: users
+        spec:
+            initContainers:
+            - name: users-database-init
+              image: users-database-init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+            - name: broker-init
+              image: broker-init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_TOPICS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_TOPICS
+            containers:
+            - name: users
+              image: users:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 50051
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: REDIS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: REDIS_PORT
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: "1"
+              - name: KAFKA_IN_FLIGHT_REQUESTS
+                value: "1"
+              - name: KAFKA_LINGER
+                value: "0"
+              - name: KAFKA_RETRIES
+                value: "3"

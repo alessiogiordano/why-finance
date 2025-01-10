@@ -21,7 +21,7 @@ from service import StockService
 
 if __name__ == '__main__':
     redis_port = int(os.environ['REDIS_PORT'])
-    redis_server = redis.Redis(host='stocks_redis', port=redis_port, decode_responses=True)
+    redis_server = redis.Redis(host='stocks-redis', port=redis_port, decode_responses=True)
     logger.info(redis_server.ping())
     #
     stocks_port = str(int(os.environ['STOCKS_PORT']))

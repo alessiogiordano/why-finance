@@ -21,7 +21,7 @@ from service import UserService
 if __name__ == '__main__':
     global redis_server
     redis_port = int(os.environ['REDIS_PORT'])
-    redis_server = redis.Redis(host='users_redis', port=redis_port, decode_responses=True)
+    redis_server = redis.Redis(host='users-redis', port=redis_port, decode_responses=True)
     logger.info(redis_server.ping())
     #
     users_server_port = str(int(os.environ['USERS_PORT']))

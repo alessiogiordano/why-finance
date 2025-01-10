@@ -1,0 +1,157 @@
+#
+#  manifest.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: stocks-redis
+    labels:
+        app: stocks-redis
+    namespace: why-finance
+spec:
+    ports:
+    - name: redis
+      port: 6379
+    selector:
+        app: stocks-redis
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: stocks-redis
+    labels:
+        app: stocks-redis
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: stocks-redis
+    template:
+        metadata:
+            labels:
+                app: stocks-redis
+        spec:
+            containers:
+            - name: stocks-redis
+              image: redis:alpine
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 6379
+---
+kind: Service
+apiVersion: v1
+metadata:
+    name: stocks
+    labels:
+        app: stocks
+    namespace: why-finance
+spec:
+    ports:
+    - name: grpc
+      port: 50052
+    selector:
+        app: stocks
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: stocks
+    labels:
+        app: stocks
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: stocks
+    template:
+        metadata:
+            labels:
+                app: stocks
+        spec:
+            initContainers:
+            - name: stocks-database-init
+              image: stocks-database-init:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+            containers:
+            - name: stocks
+              image: stocks:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              ports:
+              - containerPort: 50052
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_DB_NAME
+              - name: STOCKS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: STOCKS_PORT
+              - name: REDIS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: REDIS_PORT

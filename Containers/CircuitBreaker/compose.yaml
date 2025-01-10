@@ -8,11 +8,11 @@
 #
 
 services:
-    circuit_breaker_redis:
+    circuit-breaker-redis:
         image: redis:alpine
         ports:
         - 30111:6379 # host:container
-    circuit_breaker:
+    circuit-breaker:
         build:
             context: .
             dockerfile: Dockerfile
@@ -22,5 +22,5 @@ services:
         ports:
         - 30112:30112
         depends_on:
-        - circuit_breaker_redis
+        - circuit-breaker-redis
         restart: always

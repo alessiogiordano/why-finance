@@ -26,9 +26,9 @@ if __name__ == "__main__":
         print("USAGE: test.py 10.0.0.16:30112")
         exit()
     with grpc.insecure_channel(sys.argv[1], options=retry_configuration) as channel:
-        circuit_breaker = CircuitBreakerStub(channel)
+        circuit-breaker = CircuitBreakerStub(channel)
         http_request = HTTPRequest(url="https://example.com/")
         print("Sending request to " + http_request.url)
         request = CircuitBreakerHTTPRequest(id=uuid.uuid4().hex, expected=[200], timeout=30, threshold=3, recovery=30, http=http_request)
-        response = circuit_breaker.send(request, timeout=60) # twice the HTTP request timeout
+        response = circuit-breaker.send(request, timeout=60) # twice the HTTP request timeout
         print("Response: " + CircuitBreakerStatus.Name(response.status) + " " + str(response.http.status))

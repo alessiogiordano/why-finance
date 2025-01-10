@@ -18,16 +18,15 @@ echo "(C) 2024 Luca Montera, Alessio Giordano"
 echo "---"
 
 if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
-    printf "%s\n" "USAGE: ./setup.sh [--install-protobuf-suppport] [--build-protos] [--reset] [-h] ..."
+    printf "%s\n" "USAGE: ./setup.sh [-d | -k] [--install-protobuf-suppport] [--build-protos] [-h] ..."
     printf "%s\t%s\n" "--transfer-certificate aps.pem" " Copies the APNS certificate into the project"
     printf "%s\t%s\n" "--install-protobuf-suppport " " Installs the proper version of grpcio(-tools)"
     printf "%s\t\t\t%s\n" "--build-protos " " Deletes ./Protos/.build and rebuilds ProtoBufs"
     printf "%s\t\t\t%s\n" "--rebuild " " Forces rebuild of images before running"
     printf "%s\t\t\t%s\n" "--reset " " Deletes built local images and volumes before running"
     printf "%s\t\t\t%s\n" "--hard-reset " " Deletes all built images and volumes before running"
-    printf "%s\t\t\t%s\n" "--no-run " " Does not start the Docker Compose file"
-#    printf "%s\t\t\t%s\n" "--docker " " Run Docker Compose through the Docker Engine"
-#    printf "%s\t\t\t%s\n" "--kind " " Run as Kubernetes Cluster through Kind"
+    printf "%s\t\t\t%s\n" "-d --docker " " Run Docker Compose through the Docker Engine"
+    printf "%s\t\t\t%s\n" "-k --kind " " Run Kubernetes Cluster through Kind"
     printf "%s\t\t\t%s\n" "-h, --help " " Prints this message"
     exit 0;
 fi
@@ -63,6 +62,19 @@ fi
 NO_RUN=false
 if [[ " $@ " =~ " --no-run " ]]; then
     NO_RUN=true
+fi
+RUN_DOCKER=false
+if [[ " $@ " =~ " --docker " ]]; then
+    RUN_DOCKER=true
+fi
+RUN_KIND=false
+if [[ " $@ " =~ " --kind " ]]; then
+    RUN_KIND=true
+fi
+
+if [[ "$RUN_DOCKER" = true && "$RUN_KIND" = true ]]; then
+    echo "Only one execution method can be specified, either --docker or --kind"
+    exit 1
 fi
 
 #
@@ -128,10 +140,6 @@ if [[ ! -d "./Protos/.build" || "$BUILD_PROTOS" = true ]]; then
     for PROTO in ./*.proto; do
         python3 -m grpc_tools.protoc -I . --python_out=./.build/ --pyi_out=./.build/ --grpc_python_out=./.build/ "$PROTO" > /dev/null 2>&1
     done
-    #python3 -m grpc_tools.protoc -I ../. --python_out=. --pyi_out=. --grpc_python_out=. users.proto
-    #python3 -m grpc_tools.protoc -I ../. --python_out=. --pyi_out=. --grpc_python_out=. stocks.proto
-    #python3 -m grpc_tools.protoc -I ../. --python_out=. --pyi_out=. --grpc_python_out=. circuit_breaker.proto
-    #python3 -m grpc_tools.protoc -I ../. --python_out=. --pyi_out=. http.proto
     #
     cd ..
     echo " Done"
@@ -144,14 +152,28 @@ cd "./Containers/"
 #
 
 if [[ "$RESET" = true ]]; then
-    printf "%s" "Deleting all local images and volumes..."
+    printf "%s" "Deleting all Docker Compose local images and volumes..."
     docker compose down --rmi local -v > /dev/null 2>&1
+    printf "%s" " Kind cluster..."
+    kind delete cluster --name why-finance > /dev/null 2>&1
     echo " Done"
 fi
 
 if [[ "$HARD_RESET" = true ]]; then
-    printf "%s" "Deleting all images and volumes..."
+    printf "%s" "Deleting all Docker Compose images and volumes..."
     docker compose down --rmi all -v > /dev/null 2>&1
+    printf "%s" " Kind cluster..."
+    kind delete cluster --name why-finance > /dev/null 2>&1
+    cd ..
+    printf "%s" " Built images..."
+    for DIRECTORY in ./Containers/*/; do
+        TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
+        if [[ -f "${DIRECTORY}tag.txt" ]]; then
+            TAG=$(cat "${DIRECTORY}tag.txt")
+        fi
+        docker rmi -f "${TAG}:latest" > /dev/null 2>&1
+    done
+    cd "./Containers/"
     echo " Done"
 fi
 
@@ -159,13 +181,39 @@ fi
 # Start the system using the Docker Compose file
 #
 
-if [[ "$NO_RUN" = true ]]; then
-    exit 0;
+if [[ "$RUN_DOCKER" = true ]]; then
+    echo "Starting up the system using Docker..."
+    if [[ "$REBUILD" = true ]]; then
+        docker compose up --build --force-recreate --no-deps
+    else
+        docker compose up
+    fi
 fi
 
-echo "Starting up the system..."
-if [[ "$REBUILD" = true ]]; then
-    docker compose up --build --force-recreate --no-deps
-else
-    docker compose up
+#
+# Start the system using Kind
+#
+
+if [[ "$RUN_KIND" = true ]]; then
+    echo "Starting up the system using Kind..."
+    kind create cluster --config kind-config.yaml --name why-finance
+    kubectl create configmap why-finance-env --from-env-file=.env
+    cd ..
+    for DIRECTORY in ./Containers/*/; do
+        TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
+        if [[ -f "${DIRECTORY}tag.txt" ]]; then
+            TAG=$(cat "${DIRECTORY}tag.txt")
+        fi
+        if [[ -f "${DIRECTORY}Dockerfile" ]]; then
+            printf "%s" "Building ${TAG}:latest..."
+            docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
+            printf "%s" "Loading ${TAG}:latest..."
+            kind load docker-image "${TAG}:latest" --name why-finance
+        fi
+        if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
+            printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml..."
+            kubectl apply -f "${DIRECTORY}manifest.yaml" --context kind-why-finance
+        fi
+    done
+    echo "Done starting up the system"
 fi

@@ -1,0 +1,98 @@
+#
+#  kind-config.yaml
+#  Progetto di Distributed Systems and Big Data
+#  Anno Accademico 2024-25
+#  (C) 2024 Luca Montera, Alessio Giordano
+#
+#  Created by Alessio Giordano on 10/01/25.
+#
+
+kind: Namespace
+apiVersion: v1
+metadata:
+    name: why-finance
+    labels:
+        name: why-finance
+#---
+#kind: Service
+#apiVersion: v1
+#metadata:
+#    name: alert
+#    labels:
+#        app: alert
+#    namespace: why-finance
+#spec:
+#    selector:
+#        app: alert
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+    name: alert
+    labels:
+        app: alert
+    namespace: why-finance
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: alert
+    template:
+        metadata:
+            labels:
+                app: alert
+        spec:
+            containers:
+            - name: alert
+              image: alert:latest
+              imagePullPolicy: IfNotPresent # Always # Never
+              env:
+              - name: DB_HOST
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_HOST
+              - name: DB_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PORT
+              - name: DB_USER
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_USER
+              - name: DB_PASSWORD
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_PASSWORD
+              - name: DB_NAME
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_DB_NAME
+              - name: USERS_PORT
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: USERS_PORT
+              - name: KAFKA_BROKERS
+                valueFrom:
+                    configMapKeyRef:
+                        name: why-finance-env
+                        key: KAFKA_BROKERS
+              - name: KAFKA_ACKS
+                value: "all"
+              - name: KAFKA_LINGER
+                value: "0"
+              - name: KAFKA_BATCH_SIZE
+                value: "128000"
+              - name: KAFKA_RETRIES
+                value: "3"
+              - name: KAFKA_GROUP_ID
+                value: "alert"
+              - name: KAFKA_TOPICS
+                value: "alert"
+              - name: KAFKA_POLLING_INTERVAL
+                value: "1.0"
