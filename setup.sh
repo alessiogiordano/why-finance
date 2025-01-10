@@ -197,7 +197,7 @@ fi
 if [[ "$RUN_KIND" = true ]]; then
     echo "Starting up the system using Kind..."
     kind create cluster --config kind-config.yaml --name why-finance
-    kubectl create configmap why-finance-env --from-env-file=.env
+    kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
     cd ..
     for DIRECTORY in ./Containers/*/; do
         TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
@@ -205,13 +205,13 @@ if [[ "$RUN_KIND" = true ]]; then
             TAG=$(cat "${DIRECTORY}tag.txt")
         fi
         if [[ -f "${DIRECTORY}Dockerfile" ]]; then
-            printf "%s" "Building ${TAG}:latest..."
+            echo "Building ${TAG}:latest..."
             docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
-            printf "%s" "Loading ${TAG}:latest..."
+            printf "%s" "Loading ${TAG}:latest... "
             kind load docker-image "${TAG}:latest" --name why-finance
         fi
         if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
-            printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml..."
+            printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml... "
             kubectl apply -f "${DIRECTORY}manifest.yaml" --context kind-why-finance
         fi
     done

@@ -50,7 +50,7 @@ spec:
             volumes:
             - name: monitor-prometheus-data
               emptyDir: {}
-            - name: monitor_prometheus_configuration
+            - name: monitor-prometheus-configuration
               hostPath:
                   path: ./prometheus.yml
                   type: File
@@ -63,5 +63,5 @@ spec:
               volumeMounts:
               - name: monitor-prometheus-data
                 mountPath: /prometheus
-              - name: monitor_prometheus_configuration
+              - name: monitor-prometheus-configuration
                 mountPath: /etc/prometheus/prometheus.yml

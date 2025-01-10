@@ -58,11 +58,11 @@ spec:
                         name: why-finance-env
                         key: KAFKA_BROKERS
               - name: KAFKA_GROUP_ID
-                value: notification-center
+                value: "notification-center"
               - name: KAFKA_TOPICS
-                value: notification-center
+                value: "notification-center"
               - name: KAFKA_POLLING_INTERVAL
-                value: 1.0
+                value: "1.0"
               - name: APNS_ENDPOINT
                 valueFrom:
                     configMapKeyRef:
