@@ -22,6 +22,7 @@ if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
     printf "%s\t%s\n" "--transfer-certificate aps.pem" " Copies the APNS certificate into the project"
     printf "%s\t%s\n" "--install-protobuf-suppport " " Installs the proper version of grpcio(-tools)"
     printf "%s\t\t\t%s\n" "--build-protos " " Deletes ./Protos/.build and rebuilds ProtoBufs"
+    printf "%s\t\t\t%s\n" "--log-pods " " Log status of Kubernetes nodes to ./log.txt"
     printf "%s\t\t\t%s\n" "--rebuild " " Forces rebuild of images before running"
     printf "%s\t\t\t%s\n" "--reset " " Deletes built local images and volumes before running"
     printf "%s\t\t\t%s\n" "--hard-reset " " Deletes all built images and volumes before running"
@@ -46,6 +47,10 @@ fi
 BUILD_PROTOS=false
 if [[ " $@ " =~ " --build-protos " ]]; then
     BUILD_PROTOS=true
+fi
+LOG_PODS=false
+if [[ " $@ " =~ " --log-pods " ]]; then
+    LOG_PODS=true
 fi
 REBUILD=false
 if [[ " $@ " =~ " --rebuild " ]]; then
@@ -145,6 +150,23 @@ if [[ ! -d "./Protos/.build" || "$BUILD_PROTOS" = true ]]; then
     echo " Done"
 fi
 
+#
+# Log Kubernetes Status
+#
+
+if [[ "$LOG_PODS" = true ]]; then
+    echo "Gathering Pods..."
+    PODS=$(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name")
+    printf "%s" "Logging"
+    for POD in $(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name"); do
+        printf "%s" " $POD..."
+        kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt
+        kubectl logs "$POD" --context kind-why-finance --namespace why-finance >> log.txt
+        "\n" >> log.txt
+    done
+    echo " Done"
+fi
+
 cd "./Containers/"
 
 #
@@ -197,6 +219,7 @@ fi
 if [[ "$RUN_KIND" = true ]]; then
     echo "Starting up the system using Kind..."
     kind create cluster --config kind-config.yaml --name why-finance
+    kubectl create namespace why-finance
     kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
     cd ..
     for DIRECTORY in ./Containers/*/; do

@@ -7,7 +7,7 @@
 #  Created by Luca Montera on 24/11/24.
 #
 
-FROM python:3.12
+FROM alpine:latest
 
 WORKDIR /why-finance/crawler
 
@@ -17,10 +17,11 @@ COPY Containers/Crawler/ .
 RUN mkdir ./logs
 RUN touch ./logs/app.log
 
-RUN apt-get update && \
-    apt-get install -y default-mysql-client && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN pip install -r requirements.txt
+RUN apk update
+RUN apk upgrade
+RUN apk add python3 py3-pip py3-grpcio
+# Because of lack of gcc in Alpine, confluent-kafka has to be installed separately
+RUN apk add py3-confluent-kafka --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing
+RUN pip3 install -r requirements.txt --break-system-packages
 
 ENTRYPOINT ["python", "./main.py"]

@@ -7,7 +7,7 @@
 #  Created by Luca Montera on 24/11/24.
 #
 
-FROM python:3.12
+FROM alpine:latest
 
 WORKDIR /why-finance/stocks
 
@@ -17,8 +17,9 @@ COPY Containers/Stocks/ .
 RUN mkdir ./logs
 RUN touch ./logs/app.log
 
-RUN pip install -r requirements.txt
+RUN apk update
+RUN apk upgrade
+RUN apk add python3 py3-pip py3-grpcio
+RUN pip3 install -r requirements.txt --break-system-packages
 
-EXPOSE 50052
-
-CMD ["python", "main.py"]
+CMD [ "python3", "main.py" ]

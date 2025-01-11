@@ -12,3 +12,4 @@
 *.icloud
 /Ignore
 *.pem
+/log.txt
