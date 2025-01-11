@@ -160,9 +160,9 @@ if [[ "$LOG_PODS" = true ]]; then
     printf "%s" "Logging"
     for POD in $(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name"); do
         printf "%s" " $POD..."
-        kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt
-        kubectl logs "$POD" --context kind-why-finance --namespace why-finance >> log.txt
-        "\n" >> log.txt
+        kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
+        kubectl logs "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
+        echo "" >> log.txt
     done
     echo " Done"
 fi
