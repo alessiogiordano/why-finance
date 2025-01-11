@@ -53,7 +53,7 @@ spec:
             - name: monitor-prometheus-configuration
               hostPath:
                   path: ${WHYFINANCE_PATH}/Containers/Monitor/prometheus.yml
-                  type: ""
+                  type: File
             containers:
             - name: monitor
               image: prom/prometheus

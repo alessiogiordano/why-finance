@@ -252,7 +252,10 @@ if [[ "$RUN_KIND" = true ]]; then
     for COMMAND in "kind" "kubectl" "docker" "envsubst"; do
         isavailable "$COMMAND"
     done
-    kind create cluster --config kind-config.yaml --name why-finance
+    rm ".manifest.yaml" 2> /dev/null
+    WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "kind-config.yaml" > ".manifest.yaml"
+    kind create cluster --config ".manifest.yaml" --name why-finance
+    rm ".manifest.yaml" 2> /dev/null
     kubectl create namespace why-finance
     kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
     cd ..
@@ -284,13 +287,11 @@ if [[ "$RUN_KIND" = true ]]; then
         if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
             printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml... "
             rm ".manifest.yaml" 2> /dev/null
-            WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "${DIRECTORY}manifest.yaml" > ".manifest.yaml"
+            WHYFINANCE_PATH="/why-finance" envsubst < "${DIRECTORY}manifest.yaml" > ".manifest.yaml"
             kubectl apply -f ".manifest.yaml" --context kind-why-finance
             rm ".manifest.yaml" 2> /dev/null
         fi
     done
-    
-    
     echo "Done starting up the system"
 fi
 

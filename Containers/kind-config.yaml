@@ -12,9 +12,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: why-finance
 nodes:
 - role: control-plane
+  extraMounts:
+  - hostPath: "${WHYFINANCE_PATH}"
+    containerPath: /why-finance
 - role: worker
   labels:
       custom-label: "worker"
+  extraMounts:
+  - hostPath: "${WHYFINANCE_PATH}"
+    containerPath: /why-finance
   extraPortMappings:
   - containerPort: 30080 # Proxy (Flask)
     hostPort: 80
