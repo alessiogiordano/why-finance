@@ -283,10 +283,10 @@ if [[ "$RUN_KIND" = true ]]; then
         fi
         if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
             printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml... "
-            rm ".manifest.yaml"
+            rm ".manifest.yaml" 2> /dev/null
             WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "${DIRECTORY}manifest.yaml" > ".manifest.yaml"
             kubectl apply -f ".manifest.yaml" --context kind-why-finance
-            rm ".manifest.yaml"
+            rm ".manifest.yaml" 2> /dev/null
         fi
     done
     
