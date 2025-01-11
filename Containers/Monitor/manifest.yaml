@@ -58,6 +58,8 @@ spec:
             - name: monitor
               image: prom/prometheus
               imagePullPolicy: IfNotPresent # Always # Never
+              securityContext:
+                  runAsUser: 0 # err="open /etc/prometheus/prometheus.yml: permission denied"
               ports:
               - containerPort: 9090
               volumeMounts:

@@ -18,7 +18,7 @@ cd "$WHYFINANCE_PATH"
 echo "WhyFinance"
 echo "Progetto di Distributed Systems and Big Data"
 echo "Anno Accademico 2024-25"
-echo "(C) 2024 Luca Montera, Alessio Giordano"
+echo "(C) 2024-2025 Luca Montera, Alessio Giordano"
 echo "---"
 
 if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
@@ -180,6 +180,8 @@ if [[ "$LOG_PODS" = true ]]; then
     echo "Gathering Pods..."
     PODS=$(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name")
     printf "%s" "Logging"
+    printf "%s" " Pods..."
+    kubectl get pod --context kind-why-finance --namespace why-finance >> log.txt 2>&1
     for POD in $(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name"); do
         printf "%s" " $POD..."
         kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
@@ -248,12 +250,13 @@ fi
 #
 
 if [[ "$RUN_KIND" = true ]]; then
-    echo "Starting up the system using Kind..."
+    echo "Starting up the system using Kind... ($(date))"
     for COMMAND in "kind" "kubectl" "docker" "envsubst"; do
         isavailable "$COMMAND"
     done
     rm ".manifest.yaml" 2> /dev/null
     WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "kind-config.yaml" > ".manifest.yaml"
+    kind delete cluster --name why-finance > /dev/null 2>&1
     kind create cluster --config ".manifest.yaml" --name why-finance
     rm ".manifest.yaml" 2> /dev/null
     kubectl create namespace why-finance
@@ -265,8 +268,13 @@ if [[ "$RUN_KIND" = true ]]; then
             TAG=$(cat "${DIRECTORY}tag.txt")
         fi
         if [[ -f "${DIRECTORY}Dockerfile" ]]; then
-            echo "Building ${TAG}:latest..."
-            docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
+            printf "%s" "Building ${TAG}:latest... "
+            if ! docker inspect --type=image "${TAG}:latest" > /dev/null 2>&1; then
+                echo ""
+                docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
+            else
+                echo "Image already exists"
+            fi
         fi
     done
     for DIRECTORY in ./Containers/*/; do
@@ -275,8 +283,9 @@ if [[ "$RUN_KIND" = true ]]; then
             TAG=$(cat "${DIRECTORY}tag.txt")
         fi
         if [[ -f "${DIRECTORY}Dockerfile" ]]; then
-            printf "%s" "Loading ${TAG}:latest... "
-            kind load docker-image "${TAG}:latest" --name why-finance
+            printf "%s" "Loading ${TAG}:latest..."
+            kind load docker-image "${TAG}:latest" --name why-finance > /dev/null 2>&1
+            echo " Done"
         fi
     done
     for DIRECTORY in ./Containers/*/; do
@@ -285,14 +294,21 @@ if [[ "$RUN_KIND" = true ]]; then
             TAG=$(cat "${DIRECTORY}tag.txt")
         fi
         if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
-            printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml... "
+            printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml..."
             rm ".manifest.yaml" 2> /dev/null
             WHYFINANCE_PATH="/why-finance" envsubst < "${DIRECTORY}manifest.yaml" > ".manifest.yaml"
-            kubectl apply -f ".manifest.yaml" --context kind-why-finance
+            kubectl apply -f ".manifest.yaml" --context kind-why-finance > /dev/null 2>&1
             rm ".manifest.yaml" 2> /dev/null
+            echo " Done"
         fi
     done
-    echo "Done starting up the system"
+    echo "Done setting up pods ($(date))"
+    printf "%s" "Waiting for all pods becoming ready (CTRL+C to skip)..."
+    # Executed twice in case some pods are not immediately created and therefore not counted
+    # Negative timeout of 60 minutes should be interpreted as timeout of a week according to docs
+    kubectl wait pod --all --for=condition=Ready=true --timeout -60m --context kind-why-finance --namespace why-finance > /dev/null 2>&1
+    kubectl wait pod --all --for=condition=Ready=true --timeout -60m --context kind-why-finance --namespace why-finance > /dev/null 2>&1
+    echo " Done starting up the system ($(date))"
 fi
 
 cd "$PWD"
