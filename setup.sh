@@ -11,6 +11,10 @@
 
 clear
 
+PWD=$(pwd)
+WHYFINANCE_PATH=$(dirname "$(realpath $0)")
+cd "$WHYFINANCE_PATH"
+
 echo "WhyFinance"
 echo "Progetto di Distributed Systems and Big Data"
 echo "Anno Accademico 2024-25"
@@ -29,7 +33,8 @@ if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
     printf "%s\t\t\t%s\n" "-d --docker " " Run Docker Compose through the Docker Engine"
     printf "%s\t\t\t%s\n" "-k --kind " " Run Kubernetes Cluster through Kind"
     printf "%s\t\t\t%s\n" "-h, --help " " Prints this message"
-    exit 0;
+    cd "$PWD"
+    exit 0
 fi
 
 #
@@ -79,8 +84,21 @@ fi
 
 if [[ "$RUN_DOCKER" = true && "$RUN_KIND" = true ]]; then
     echo "Only one execution method can be specified, either --docker or --kind"
+    cd "$PWD"
     exit 1
 fi
+
+#
+# Check dependencies
+#
+
+isavailable () {
+    if [ ! -n "$(which $1)" ]; then
+        echo "Missing dependency: $1"
+        cd "$PWD"
+        exit 1
+    fi
+}
 
 #
 # Gather certificate path
@@ -116,6 +134,7 @@ cd "$(dirname "$0")" # Go to the root of the project
 if [[ ! -f "./Containers/NotificationCenter/aps.pem" || "$TRANSFER_CERTIFICATE" = true ]]; then
     if [[ -z "$CERTIFICATE" ]]; then
         echo "Provide a valid file path with --transfer-certificate to copy the APNS certificate over to the NotificationCenter microservice."
+        cd "$PWD"
         exit 1;
     fi
     printf "%s" "Copying APNS certificate..."
@@ -127,6 +146,7 @@ fi
 # Install ProtoBuf and gRPC support in the local Python environment
 #
 if [[ "$INSTALL_PROTOBUF_SUPPORT" = true ]]; then
+    isavailable "pip3"
     printf "%s" "Installing grpcio and grpcio-tools..."
     pip3 install grpcio==1.62.1 grpcio-tools==1.62.1 > /dev/null 2>&1
     echo " Done"
@@ -137,6 +157,7 @@ fi
 #
 
 if [[ ! -d "./Protos/.build" || "$BUILD_PROTOS" = true ]]; then
+    isavailable "python3"
     printf "%s" "Building Protocol Buffers..."
     rm -rf "./Protos/.build" > /dev/null 2>&1
     mkdir "./Protos/.build" > /dev/null 2>&1
@@ -155,6 +176,7 @@ fi
 #
 
 if [[ "$LOG_PODS" = true ]]; then
+    isavailable "kubectl"
     echo "Gathering Pods..."
     PODS=$(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name")
     printf "%s" "Logging"
@@ -174,6 +196,9 @@ cd "./Containers/"
 #
 
 if [[ "$RESET" = true ]]; then
+    for COMMAND in "docker" "docker-compose" "kind"; do
+        isavailable "$COMMAND"
+    done
     printf "%s" "Deleting all Docker Compose local images and volumes..."
     docker compose down --rmi local -v > /dev/null 2>&1
     printf "%s" " Kind cluster..."
@@ -182,6 +207,9 @@ if [[ "$RESET" = true ]]; then
 fi
 
 if [[ "$HARD_RESET" = true ]]; then
+    for COMMAND in "docker" "docker-compose" "kind"; do
+        isavailable "$COMMAND"
+    done
     printf "%s" "Deleting all Docker Compose images and volumes..."
     docker compose down --rmi all -v > /dev/null 2>&1
     printf "%s" " Kind cluster..."
@@ -205,6 +233,9 @@ fi
 
 if [[ "$RUN_DOCKER" = true ]]; then
     echo "Starting up the system using Docker..."
+    for COMMAND in "docker" "docker-compose"; do
+        isavailable "$COMMAND"
+    done
     if [[ "$REBUILD" = true ]]; then
         docker compose up --build --force-recreate --no-deps
     else
@@ -218,6 +249,9 @@ fi
 
 if [[ "$RUN_KIND" = true ]]; then
     echo "Starting up the system using Kind..."
+    for COMMAND in "kind" "kubectl" "docker" "envsubst"; do
+        isavailable "$COMMAND"
+    done
     kind create cluster --config kind-config.yaml --name why-finance
     kubectl create namespace why-finance
     kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
@@ -230,13 +264,34 @@ if [[ "$RUN_KIND" = true ]]; then
         if [[ -f "${DIRECTORY}Dockerfile" ]]; then
             echo "Building ${TAG}:latest..."
             docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
+        fi
+    done
+    for DIRECTORY in ./Containers/*/; do
+        TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
+        if [[ -f "${DIRECTORY}tag.txt" ]]; then
+            TAG=$(cat "${DIRECTORY}tag.txt")
+        fi
+        if [[ -f "${DIRECTORY}Dockerfile" ]]; then
             printf "%s" "Loading ${TAG}:latest... "
             kind load docker-image "${TAG}:latest" --name why-finance
         fi
+    done
+    for DIRECTORY in ./Containers/*/; do
+        TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
+        if [[ -f "${DIRECTORY}tag.txt" ]]; then
+            TAG=$(cat "${DIRECTORY}tag.txt")
+        fi
         if [[ -f "${DIRECTORY}manifest.yaml" ]]; then
             printf "%s" "Applying $(basename "$DIRECTORY")/manifest.yaml... "
-            kubectl apply -f "${DIRECTORY}manifest.yaml" --context kind-why-finance
+            rm ".manifest.yaml"
+            WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "${DIRECTORY}manifest.yaml" > ".manifest.yaml"
+            kubectl apply -f ".manifest.yaml" --context kind-why-finance
+            rm ".manifest.yaml"
         fi
     done
+    
+    
     echo "Done starting up the system"
 fi
+
+cd "$PWD"

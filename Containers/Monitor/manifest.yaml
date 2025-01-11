@@ -52,7 +52,7 @@ spec:
               emptyDir: {}
             - name: monitor-prometheus-configuration
               hostPath:
-                  path: ./prometheus.yml
+                  path: ${WHYFINANCE_PATH}/Containers/Monitor/prometheus.yml
                   type: File
             containers:
             - name: monitor

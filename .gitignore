@@ -13,3 +13,4 @@
 /Ignore
 *.pem
 /log.txt
+/.manifest.yaml
