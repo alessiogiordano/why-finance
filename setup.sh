@@ -10,6 +10,7 @@
 #
 
 clear
+set +o posix # Enable <() expression
 
 PWD=$(pwd)
 WHYFINANCE_PATH=$(dirname "$(realpath $0)")
