@@ -138,6 +138,8 @@ spec:
               - name: MONITOR_SERVICE_NAME
                 value: "crawler"
               - name: MONITOR_SERVICE_NODE
-                value: "crawler_1"
+                valueFrom:
+                    fieldRef:
+                        fieldPath: spec.nodeName
               - name: MONITOR_SERVICE_PORT
                 value: "9081"

@@ -10,29 +10,32 @@
 #
 
 clear
-set +o posix # Enable <() expression
+set +o posix 2> /dev/null # Enable <() expression
 
 PWD=$(pwd)
 WHYFINANCE_PATH=$(dirname "$(realpath $0)")
 cd "$WHYFINANCE_PATH"
 
+ARGS=$(echo " $@ ") # Solves syntax error when using ash and providing more than one argument
+                    # if expr "$ARGS" : ".* -h .*" > /dev/null; then
+                    # if [[ "$ARGS" =~ " -h " ]]; then
 echo "WhyFinance"
 echo "Progetto di Distributed Systems and Big Data"
 echo "Anno Accademico 2024-25"
 echo "(C) 2024-2025 Luca Montera, Alessio Giordano"
 echo "---"
 
-if [[ " $@ " =~ " -h " || " $@ " =~ " --help " ]]; then
+if [[ "$ARGS" =~ " -h " || "$ARGS" =~ " --help " ]]; then
     printf "%s\n" "USAGE: ./setup.sh [-d | -k] [--install-protobuf-suppport] [--build-protos] [-h] ..."
     printf "%s\t%s\n" "--transfer-certificate aps.pem" " Copies the APNS certificate into the project"
     printf "%s\t%s\n" "--install-protobuf-suppport " " Installs the proper version of grpcio(-tools)"
     printf "%s\t\t\t%s\n" "--build-protos " " Deletes ./Protos/.build and rebuilds ProtoBufs"
-    printf "%s\t\t\t%s\n" "--log-pods " " Log status of Kubernetes nodes to ./log.txt"
     printf "%s\t\t\t%s\n" "--rebuild " " Forces rebuild of images before running"
     printf "%s\t\t\t%s\n" "--reset " " Deletes built local images and volumes before running"
     printf "%s\t\t\t%s\n" "--hard-reset " " Deletes all built images and volumes before running"
     printf "%s\t\t\t%s\n" "-d --docker " " Run Docker Compose through the Docker Engine"
     printf "%s\t\t\t%s\n" "-k --kind " " Run Kubernetes Cluster through Kind"
+    printf "%s\t\t\t%s\n" "--log-pods " " Log status of Kubernetes nodes to ./log.txt"
     printf "%s\t\t\t%s\n" "-h, --help " " Prints this message"
     cd "$PWD"
     exit 0
@@ -43,44 +46,40 @@ fi
 #
 
 TRANSFER_CERTIFICATE=false
-if [[ " $@ " =~ " --transfer-certificate " ]]; then
+if [[ "$ARGS" =~ " --transfer-certificate " ]]; then
     TRANSFER_CERTIFICATE=true
 fi
 INSTALL_PROTOBUF_SUPPORT=false
-if [[ " $@ " =~ " --install-protobuf-support " ]]; then
+if [[ "$ARGS" =~ " --install-protobuf-support " ]]; then
     INSTALL_PROTOBUF_SUPPORT=true
 fi
 BUILD_PROTOS=false
-if [[ " $@ " =~ " --build-protos " ]]; then
+if [[ "$ARGS" =~ " --build-protos " ]]; then
     BUILD_PROTOS=true
 fi
-LOG_PODS=false
-if [[ " $@ " =~ " --log-pods " ]]; then
-    LOG_PODS=true
-fi
 REBUILD=false
-if [[ " $@ " =~ " --rebuild " ]]; then
+if [[ "$ARGS" =~ " --rebuild " ]]; then
     REBUILD=true
 fi
 RESET=false
-if [[ " $@ " =~ " --reset " ]]; then
+if [[ "$ARGS" =~ " --reset " ]]; then
     RESET=true
 fi
 HARD_RESET=false
-if [[ " $@ " =~ " --hard-reset " ]]; then
+if [[ "$ARGS" =~ " --hard-reset " ]]; then
     HARD_RESET=true
 fi
-NO_RUN=false
-if [[ " $@ " =~ " --no-run " ]]; then
-    NO_RUN=true
-fi
 RUN_DOCKER=false
-if [[ " $@ " =~ " --docker " ]]; then
+if [[ "$ARGS" =~ " -d " || "$ARGS" =~ " --docker " ]]; then
     RUN_DOCKER=true
 fi
 RUN_KIND=false
-if [[ " $@ " =~ " --kind " ]]; then
+if [[ "$ARGS" =~ " -k " || "$ARGS" =~ " --kind " ]]; then
     RUN_KIND=true
+fi
+LOG_PODS=false
+if [[ "$ARGS" =~ " --log-pods " ]]; then
+    LOG_PODS=true
 fi
 
 if [[ "$RUN_DOCKER" = true && "$RUN_KIND" = true ]]; then
@@ -172,26 +171,6 @@ if [[ ! -d "./Protos/.build" || "$BUILD_PROTOS" = true ]]; then
     echo " Done"
 fi
 
-#
-# Log Kubernetes Status
-#
-
-if [[ "$LOG_PODS" = true ]]; then
-    isavailable "kubectl"
-    echo "Gathering Pods..."
-    PODS=$(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name")
-    printf "%s" "Logging"
-    printf "%s" " Pods..."
-    kubectl get pod --context kind-why-finance --namespace why-finance >> log.txt 2>&1
-    for POD in $(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name"); do
-        printf "%s" " $POD..."
-        kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
-        kubectl logs "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
-        echo "" >> log.txt
-    done
-    echo " Done"
-fi
-
 cd "./Containers/"
 
 #
@@ -263,14 +242,14 @@ if [[ "$RUN_KIND" = true ]]; then
     if [ -f /proc/meminfo ]; then
         MAIN_MEMORY=$(cat /proc/meminfo | grep MemTotal | awk '{print $2 * 1024}') # Bytes
         # Main memory should at least be 2 GB
-        if [ "$MAIN_MEMORY" -lt "2000000000" ]; then
-            printf "\e[31mRAM is less than 2GB, you will have trouble running the Kubernetes cluster\e[0m\n"
+        if [ "$MAIN_MEMORY" -lt "2400000000" ]; then
+            printf "\e[31mRAM is less than 2.5GB, you will have trouble running the Kubernetes cluster\e[0m\n"
         fi
     fi
     if [ -n "$(which nproc)" ]; then
         CPU_COUNT=$(nproc --all)
-        if [ "$CPU_COUNT" -lt "2" ]; then
-            printf "\e[31mCPU should be at least dual core, you will have trouble running the Kubernetes cluster\e[0m\n"
+        if [ "$CPU_COUNT" -lt "4" ]; then
+            printf "\e[31mCPU should be at least quad core, you will have trouble running the Kubernetes cluster\e[0m\n"
         fi
     fi
     #
@@ -294,7 +273,7 @@ if [[ "$RUN_KIND" = true ]]; then
     #
     # Build Docker Images
     #
-    cd ..
+    cd .. # Return to root (required by Dockerfile context)
     # Get terminal lines and columns
     read -r LINES COLUMNS < <(stty size)
     for DIRECTORY in ./Containers/*/; do
@@ -364,7 +343,11 @@ if [[ "$RUN_KIND" = true ]]; then
         fi
     done
     echo "Done setting up pods ($(date))"
-    printf "%s" "Waiting for all pods becoming ready (CTRL+C to skip)..."
+    if [[ "$LOG_PODS" = true ]]; then
+        printf "%s" "Waiting for all pods to become ready..."
+    else
+        printf "%s" "Waiting for all pods to become ready (CTRL+C to skip)..."
+    fi
     # Executed twice in case some pods are not immediately created and therefore not counted
     # Negative timeout of 60 minutes should be interpreted as timeout of a week according to docs
     kubectl wait pod --all --for=condition=Ready=true --timeout -60m --context kind-why-finance --namespace why-finance > /dev/null 2>&1
@@ -372,6 +355,29 @@ if [[ "$RUN_KIND" = true ]]; then
     printf "\a" # Visual and Audio Bell
     echo " Done starting up the system ($(date))"
     set +a
+    cd "./Containers/"
 fi
 
-cd "$PWD"
+cd .. # Return to root
+
+#
+# Log Kubernetes Status
+#
+
+if [[ "$LOG_PODS" = true ]]; then
+    isavailable "kubectl"
+    echo "Gathering Pods..."
+    PODS=$(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name")
+    printf "%s" "Logging"
+    printf "%s" " Pods..."
+    kubectl get pod --context kind-why-finance --namespace why-finance >> log.txt 2>&1
+    for POD in $(kubectl get pod --context kind-why-finance --namespace why-finance --no-headers -o custom-columns=":metadata.name"); do
+        printf "%s" " $POD..."
+        kubectl describe pod "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
+        kubectl logs "$POD" --context kind-why-finance --namespace why-finance >> log.txt 2>&1
+        echo "" >> log.txt
+    done
+    echo " Done"
+fi
+
+cd "$PWD" # Return to caller

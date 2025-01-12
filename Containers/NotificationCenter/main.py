@@ -8,6 +8,7 @@
 #
 
 from os import environ # Environment Variables
+from utils.breaker import context as circuit_breaker
 from utils.logger import logger
 from utils.subscribe import subscribe
 import httpx
@@ -53,9 +54,9 @@ def send_apns_notification(device_token, payload, lang_code='en'):
     with httpx.Client(http2=True, cert='aps.pem') as client:
         logger.info(f"willSendPushNotification: '{identifier}'")
         #
-        response = client.post(endpoint + device_token, headers=headers, json=payload)
-        #
-        logger.info(f"{identifier} {response.status_code}")
+        with circuit_breaker("push.apple.com"):
+            response = client.post(endpoint + device_token, headers=headers, json=payload)
+            logger.info(f"{identifier} {response.status_code}")
 #-----------------------------------------------------------------------------------------
 
 def send_notification(message):

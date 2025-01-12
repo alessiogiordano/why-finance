@@ -79,6 +79,8 @@ spec:
               - name: MONITOR_SERVICE_NAME
                 value: "proxy"
               - name: MONITOR_SERVICE_NODE
-                value: "proxy_1"
+                valueFrom:
+                    fieldRef:
+                        fieldPath: spec.nodeName
               - name: MONITOR_SERVICE_PORT
                 value: "9080"
