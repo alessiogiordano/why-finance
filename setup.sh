@@ -201,10 +201,10 @@ if [[ "$RESET" = true ]]; then
     for COMMAND in "docker" "docker-compose" "kind"; do
         isavailable "$COMMAND"
     done
-    printf "%s" "Deleting all Docker Compose local images and volumes..."
-    docker compose down --rmi local -v > /dev/null 2>&1
-    printf "%s" " Kind cluster..."
+    printf "%s" "Deleting Kind cluster..."
     kind delete cluster --name why-finance > /dev/null 2>&1
+    printf "%s" " Docker Compose images and volumes (local only)..."
+    docker compose down --rmi local -v > /dev/null 2>&1
     echo " Done"
 fi
 
@@ -212,10 +212,10 @@ if [[ "$HARD_RESET" = true ]]; then
     for COMMAND in "docker" "docker-compose" "kind"; do
         isavailable "$COMMAND"
     done
-    printf "%s" "Deleting all Docker Compose images and volumes..."
-    docker compose down --rmi all -v > /dev/null 2>&1
-    printf "%s" " Kind cluster..."
+    printf "%s" "Deleting Kind cluster..."
     kind delete cluster --name why-finance > /dev/null 2>&1
+    printf "%s" " Docker Compose images and volumes (all)..."
+    docker compose down --rmi all -v > /dev/null 2>&1
     cd ..
     printf "%s" " Built images..."
     for DIRECTORY in ./Containers/*/; do
@@ -225,6 +225,8 @@ if [[ "$HARD_RESET" = true ]]; then
         fi
         docker rmi -f "${TAG}:latest" > /dev/null 2>&1
     done
+    printf "%s" " Build cache..."
+    printf "y\n" | docker builder prune > /dev/null 2>&1
     cd "./Containers/"
     echo " Done"
 fi
@@ -254,14 +256,46 @@ if [[ "$RUN_KIND" = true ]]; then
     for COMMAND in "kind" "kubectl" "docker" "envsubst"; do
         isavailable "$COMMAND"
     done
+    #
+    # Check main memory and CPU
+    #
+    if [ -f /proc/meminfo ]; then
+        MAIN_MEMORY=$(cat /proc/meminfo | grep MemTotal | awk '{print $2 * 1024}') # Bytes
+        # Main memory should at least be 2 GB
+        if [ "$MAIN_MEMORY" -lt "2000000000" ]; then
+            printf "\e[31mRAM is less than 2GB, you will have trouble running the Kubernetes cluster\e[0m\n"
+        fi
+    fi
+    if [ -n "$(which nproc)" ]; then
+        CPU_COUNT=$(nproc --all)
+        if [ "$CPU_COUNT" -lt "2" ]; then
+            printf "\e[31mCPU should be at least dual core, you will have trouble running the Kubernetes cluster\e[0m\n"
+        fi
+    fi
+    #
+    # Create cluster
+    #
     rm ".manifest.yaml" 2> /dev/null
     WHYFINANCE_PATH="$WHYFINANCE_PATH" envsubst < "kind-config.yaml" > ".manifest.yaml"
     kind delete cluster --name why-finance > /dev/null 2>&1
-    kind create cluster --config ".manifest.yaml" --name why-finance
+    printf '%s' 'Creating cluster "why-finance"...'
+    kind create cluster --config ".manifest.yaml" --name why-finance > /dev/null 2>&1
+    echo " Done"
+    echo "You can now use your cluster with: kubectl cluster-info --context kind-why-finance"
     rm ".manifest.yaml" 2> /dev/null
     kubectl create namespace why-finance
+    #
+    # Environment variables
+    #
     kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
+    set -a # Automatically export all variables to child processes
+    source .env
+    #
+    # Build Docker Images
+    #
     cd ..
+    # Get terminal lines and columns
+    read -r LINES COLUMNS < <(stty size)
     for DIRECTORY in ./Containers/*/; do
         TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
         if [[ -f "${DIRECTORY}tag.txt" ]]; then
@@ -271,12 +305,35 @@ if [[ "$RUN_KIND" = true ]]; then
             printf "%s" "Building ${TAG}:latest... "
             if ! docker inspect --type=image "${TAG}:latest" > /dev/null 2>&1; then
                 echo ""
-                docker build -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" .
+                docker build --progress=plain -t "${TAG}:latest" -f "${DIRECTORY}Dockerfile" . 2>&1 | while IFS= read -r LINE; do
+                    printf "\033[2K" # Clear line
+                    if [ ! -z "$LINE" ]; then
+                        NUM_LINES=$(echo $(( $(echo "$LINE" | wc -c) / COLUMNS )))
+                        if [ "$NUM_LINES" -ne "0" ]; then
+                            TRUNCATE_TO=$(( COLUMNS - 3 ))
+                            OUTPUT="${LINE:0:TRUNCATE_TO}..."
+                            printf "\e[2m\r%s\e[0m" "$OUTPUT" # Dim line that gets printed
+                        else
+                            printf "\e[2m\r%s\e[0m" "$LINE" # Dim line that gets printed
+                        fi
+                    else
+                        printf "\r"
+                    fi
+                done
+                printf "\r" # Go to beginning of line
+                printf "\033[2K" # Clear line
+                printf "\033[A" # Go to previous line
+                printf "\033[2K" # Clear line
+                #
+                echo "Building ${TAG}:latest... Done"
             else
                 echo "Image already exists"
             fi
         fi
     done
+    #
+    # Load Docker Images inside Kind
+    #
     for DIRECTORY in ./Containers/*/; do
         TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
         if [[ -f "${DIRECTORY}tag.txt" ]]; then
@@ -288,6 +345,9 @@ if [[ "$RUN_KIND" = true ]]; then
             echo " Done"
         fi
     done
+    #
+    # Apply Kubernetes Manifests
+    #
     for DIRECTORY in ./Containers/*/; do
         TAG=$(basename "$DIRECTORY" | awk '{print tolower($0)}')
         if [[ -f "${DIRECTORY}tag.txt" ]]; then
@@ -308,7 +368,9 @@ if [[ "$RUN_KIND" = true ]]; then
     # Negative timeout of 60 minutes should be interpreted as timeout of a week according to docs
     kubectl wait pod --all --for=condition=Ready=true --timeout -60m --context kind-why-finance --namespace why-finance > /dev/null 2>&1
     kubectl wait pod --all --for=condition=Ready=true --timeout -60m --context kind-why-finance --namespace why-finance > /dev/null 2>&1
+    printf "\a" # Visual and Audio Bell
     echo " Done starting up the system ($(date))"
+    set +a
 fi
 
 cd "$PWD"
