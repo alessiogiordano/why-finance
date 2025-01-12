@@ -273,6 +273,11 @@ if [[ "$RUN_KIND" = true ]]; then
         fi
     fi
     #
+    # Environment variables
+    #
+    set -a # Automatically export all variables to child processes
+    source .env
+    #
     # Create cluster
     #
     rm ".manifest.yaml" 2> /dev/null
@@ -284,12 +289,7 @@ if [[ "$RUN_KIND" = true ]]; then
     echo "You can now use your cluster with: kubectl cluster-info --context kind-why-finance"
     rm ".manifest.yaml" 2> /dev/null
     kubectl create namespace why-finance
-    #
-    # Environment variables
-    #
     kubectl create configmap why-finance-env --from-env-file=.env --context kind-why-finance --namespace why-finance
-    set -a # Automatically export all variables to child processes
-    source .env
     #
     # Build Docker Images
     #

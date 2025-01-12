@@ -252,7 +252,7 @@ services:
             context: ../
             dockerfile: Containers/Users/Dockerfile
         ports:
-        - "${USERS_PORT}:50051"
+        - "${USERS_PORT}:${USERS_PORT}"
         environment:
         - DB_HOST=${USERS_DB_HOST} #------------------------------------------------------
         - DB_PORT=${USERS_DB_PORT}
@@ -329,7 +329,7 @@ services:
             context: ../
             dockerfile: Containers/Stocks/Dockerfile
         ports:
-        - "${STOCKS_PORT}:50052"
+        - "${STOCKS_PORT}:${STOCKS_PORT}"
         environment:
         - DB_HOST=${STOCKS_DB_HOST} #-----------------------------------------------------
         - DB_PORT=${STOCKS_DB_PORT}

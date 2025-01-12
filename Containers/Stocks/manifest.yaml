@@ -62,7 +62,7 @@ metadata:
 spec:
     ports:
     - name: grpc
-      port: 50052
+      port: ${STOCKS_PORT}
     selector:
         app: stocks
 ---
@@ -118,7 +118,7 @@ spec:
               image: stocks:latest
               imagePullPolicy: IfNotPresent # Always # Never
               ports:
-              - containerPort: 50052
+              - containerPort: ${STOCKS_PORT}
               env:
               - name: DB_HOST
                 valueFrom:

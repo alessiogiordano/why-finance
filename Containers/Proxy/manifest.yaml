@@ -25,7 +25,7 @@ spec:
     type: NodePort
     ports:
     - name: flask
-      port: 80
+      port: ${PROXY_PORT}
       nodePort: 30080 # 30000-32767
     - name: metrics
       port: 9080
@@ -49,12 +49,16 @@ spec:
             labels:
                 app: proxy
         spec:
+            initContainers:
+            - name: proxy-init
+              image: alpine:latest
+              command: ['sh', '-c', 'until nc -z users ${USERS_PORT}; do echo "Waiting for Users"; sleep 1; done; until nc -z stocks ${STOCKS_PORT}; do echo "Waiting for Stocks"; sleep 1; done;']
             containers:
             - name: proxy
               image: proxy:latest
               imagePullPolicy: IfNotPresent # Always # Never
               ports:
-              - containerPort: 80
+              - containerPort: ${PROXY_PORT}
               - containerPort: 9080
               env:
               - name: PROXY_PORT

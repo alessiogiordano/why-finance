@@ -45,11 +45,10 @@ spec:
             labels:
                 app: crawler
         spec:
-            # TODO: Ping Users
-            #initContainers:
-            #- name: init-vote
-            #  image: redis:alpine
-            #  command: ['sh', '-c', 'until nc -z redis 6379; do echo "Waiting for Redis"; sleep 1; done;']
+            initContainers:
+            - name: crawler-init
+              image: alpine:latest
+              command: ['sh', '-c', 'until nc -z users ${USERS_PORT}; do echo "Waiting for Users"; sleep 1; done; until nc -z stocks ${STOCKS_PORT}; do echo "Waiting for Stocks"; sleep 1; done;']
             containers:
             - name: crawler
               image: crawler:latest

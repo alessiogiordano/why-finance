@@ -23,6 +23,6 @@ nodes:
     containerPath: /why-finance
   extraPortMappings:
   - containerPort: 30080 # Proxy (Flask)
-    hostPort: 80
+    hostPort: ${PROXY_PORT}
   - containerPort: 30090 # Monitor (Prometheus)
     hostPort: 9090

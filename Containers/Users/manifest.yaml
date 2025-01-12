@@ -62,7 +62,7 @@ metadata:
 spec:
     ports:
     - name: grpc
-      port: 50051
+      port: ${USERS_PORT}
     selector:
         app: users
 ---
@@ -132,7 +132,7 @@ spec:
               image: users:latest
               imagePullPolicy: IfNotPresent # Always # Never
               ports:
-              - containerPort: 50051
+              - containerPort: ${USERS_PORT}
               env:
               - name: DB_HOST
                 valueFrom:

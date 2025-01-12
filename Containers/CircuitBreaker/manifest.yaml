@@ -62,7 +62,7 @@ metadata:
 spec:
     ports:
     - name: grpc
-      port: 30112
+      port: ${CIRCUIT_BREAKER_PORT}
     selector:
         app: circuit-breaker
 ---
@@ -92,7 +92,7 @@ spec:
               image: circuit-breaker:latest
               imagePullPolicy: IfNotPresent # Always # Never
               ports:
-              - containerPort: 30112
+              - containerPort: ${CIRCUIT_BREAKER_PORT}
               env:
               - name: REDIS_PORT
                 valueFrom:
